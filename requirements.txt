@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+google-cloud-aiplatform
+google-cloud-texttospeech
+google-cloud-storage
+jinja2
+python-dotenv
+requests
+firebase-admin
+shapely
