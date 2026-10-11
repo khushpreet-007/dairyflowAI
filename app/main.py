@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 # Import Vertex AI Gemini client and Cloud SQL setup
-from client.vertex_client import client
+from .client.vertex_client import client
 from db import get_db, Vendor, Inventory
 
 load_dotenv()
