@@ -1,24 +1,24 @@
-from fastapi import FastAPI, HTTPException
+import json
+import os
+from datetime import datetime
+from dotenv import load_dotenv
+
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
-from google.cloud import firestore
 from pydantic import BaseModel
-import openai
-import os
-from dotenv import load_dotenv
-import requests
-import json
-from datetime import datetime, timedelta
+from sqlalchemy.orm import Session
+
+# Import Vertex AI Gemini client and Cloud SQL setup
+from client.vertex_client import client
+from db import get_db, Vendor, Inventory
 
 load_dotenv()
 
-# Firestore & OpenAI
-db = firestore.Client()
-openai.api_key = os.getenv("OPENAI_API_KEY")
 app = FastAPI()
 
-# CORS for frontend
+# CORS configuration
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -29,7 +29,7 @@ app.add_middleware(
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
-# Models
+# Request Models
 class VendorRequest(BaseModel):
     name: str
     location: str
@@ -41,79 +41,118 @@ class ManagerQuery(BaseModel):
     inventory: dict
     weather: str = ""
 
-# COLLECTIONS
-VENDORS_COLLECTION = "vendors"
-INVENTORY_COLLECTION = "inventory"
-
 @app.get("/")
 async def home():
     return FileResponse("app/templates/index.html")
 
-# BMC MANAGER DASHBOARD
+# --- BMC MANAGER DASHBOARD ---
+
 @app.get("/api/inventory")
-async def get_inventory():
-    doc = db.collection(INVENTORY_COLLECTION).document("current").get()
-    return doc.to_dict() if doc.exists else {
-        "milk_0days": 30,
-        "milk_1day": 10, 
-        "milk_2days": 5,
-        "office": "Noida"
+def get_inventory(db: Session = Depends(get_db)):
+    inv = db.query(Inventory).filter(Inventory.id == "current").first()
+    if inv:
+        return {
+            "milk_0days": inv.milk_0days,
+            "milk_1day": inv.milk_1day,
+            "milk_2days": inv.milk_2days,
+            "office": inv.office,
+        }
+    return {
+        "milk_0days": 30.0,
+        "milk_1day": 10.0,
+        "milk_2days": 5.0,
+        "office": "Noida",
     }
 
 @app.get("/api/vendors")
-async def get_vendors():
-    vendors = db.collection(VENDORS_COLLECTION).stream()
-    return [{"id": v.id, **v.to_dict()} for v in vendors]
+def get_vendors(db: Session = Depends(get_db)):
+    vendors = db.query(Vendor).all()
+    return [
+        {
+            "id": v.id,
+            "name": v.name,
+            "location": v.location,
+            "required_milk": v.required_milk,
+            "rating": v.rating,
+            "status": v.status,
+            "assigned_quantity": v.assigned_quantity,
+        }
+        for v in vendors
+    ]
 
-# VENDOR REGISTRATION (Vendor App hits this)
+# --- VENDOR REGISTRATION ---
+
 @app.post("/api/vendors/register")
-async def register_vendor(vendor: VendorRequest):
-    vendor_data = vendor.dict()
-    vendor_data["timestamp"] = firestore.SERVER_TIMESTAMP
-    vendor_data["status"] = "pending"
-    
-    doc_ref = db.collection(VENDORS_COLLECTION).add(vendor_data)
-    return {"success": True, "vendor_id": doc_ref[1].id}
+def register_vendor(vendor: VendorRequest, db: Session = Depends(get_db)):
+    new_vendor = Vendor(
+        name=vendor.name,
+        location=vendor.location,
+        required_milk=vendor.required_milk,
+        rating=vendor.rating,
+        status="pending",
+    )
+    db.add(new_vendor)
+    db.commit()
+    db.refresh(new_vendor)
+    return {"success": True, "vendor_id": new_vendor.id}
 
-# AI VENDOR RECOMMENDATION (Gen AI Magic ✨)
+# --- AI VENDOR RECOMMENDATION (Google Gemini AI via Vertex) ---
+
 @app.post("/api/ai/recommend")
-async def ai_recommend(query: ManagerQuery):
+def ai_recommend(query: ManagerQuery, db: Session = Depends(get_db)):
     inventory = query.inventory
-    vendors = [v for v in await get_vendors()]
-    
+    vendors = get_vendors(db)
+
     prompt = f"""
-    INVENTORY: 30L(0d), {inventory['milk_1day']}L(1d), {inventory['milk_2days']}L(2d)
+    INVENTORY: 30L(0d), {inventory.get('milk_1day', 0)}L(1d), {inventory.get('milk_2days', 0)}L(2d)
     OFFICE: Noida | WEATHER: {query.weather}
-    
+
     VENDORS:
     {json.dumps(vendors, indent=2)}
-    
+
     MANAGER ASKED: "{query.query}"
-    
+
     ANALYZE step-by-step:
     1. Match quantity needs vs spoilage risk
-    2. Consider distance + weather impact  
+    2. Consider distance + weather impact
     3. Vendor rating + history
     4. Recommend EXACTLY 1 vendor + delivery time
-    
-    RESPOND in JSON: {{"reasoning": "your explanation", "vendor": "name", "quantity": X, "delivery_time": "HH:MM"}}
-    """
-    
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.3
-    )
-    
-    result = json.loads(response.choices[0].message.content)
-    return result
 
-# SEND NOTIFICATION (Update vendor status)
+    Respond with a valid JSON object matching this schema:
+    {{
+      "reasoning": "your explanation",
+      "vendor": "name",
+      "quantity": 0.0,
+      "delivery_time": "HH:MM"
+    }}
+    """
+
+    try:
+        # Call Gemini using the official Google GenAI SDK
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt,
+            config={
+                "response_mime_type": "application/json",
+                "temperature": 0.3,
+            },
+        )
+        result = json.loads(response.text)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Gemini AI processing error: {str(e)}")
+
+# --- SEND NOTIFICATION ---
+
 @app.post("/api/notify/{vendor_id}")
-async def send_notification(vendor_id: str, quantity: float):
-    db.collection(VENDORS_COLLECTION).document(vendor_id).update({
-        "status": "notified",
-        "assigned_quantity": quantity,
-        "notification_time": firestore.SERVER_TIMESTAMP
-    })
+def send_notification(vendor_id: int, quantity: float, db: Session = Depends(get_db)):
+    vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+
+    vendor.status = "notified"
+    vendor.assigned_quantity = quantity
+    vendor.notification_time = datetime.utcnow()
+    db.commit()
+
     return {"success": True}
