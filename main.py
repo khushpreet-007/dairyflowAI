@@ -9,10 +9,19 @@ from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parent
 
 # Import Vertex AI Gemini client and Cloud SQL setup
-from .client.vertex_client import client
-from .db import get_db, Vendor, Inventory
+from app.client.vertex_client import client
+from app.db import get_db, Vendor, Inventory
+
+STATIC_DIR = BASE_DIR / "static" if (BASE_DIR / "static").exists() else BASE_DIR / "app" / "static"
+TEMPLATE_DIR = BASE_DIR / "templates" if (BASE_DIR / "templates").exists() else BASE_DIR / "app" / "templates"
+
+app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+
 
 load_dotenv()
 
@@ -27,7 +36,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.mount("/static", StaticFiles(directory="static"), name="static")
+# app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Request Models
 class VendorRequest(BaseModel):
@@ -43,7 +52,7 @@ class ManagerQuery(BaseModel):
 
 @app.get("/")
 async def home():
-    return FileResponse("app/templates/index.html")
+    return FileResponse(TEMPLATE_DIR / "index.html")
 
 # --- BMC MANAGER DASHBOARD ---
 
