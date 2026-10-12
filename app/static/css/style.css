@@ -1,0 +1,29 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Segoe UI', sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; }
+
+.dashboard { max-width: 1200px; margin: 0 auto; padding: 20px; }
+header { text-align: center; color: white; margin-bottom: 30px; }
+header h1 { font-size: 2.5em; margin-bottom: 10px; }
+
+.inventory { background: white; border-radius: 20px; padding: 30px; margin-bottom: 30px; box-shadow: 0 20px 40px rgba(0,0,0,0.1); }
+.milk-cards { display: flex; gap: 20px; justify-content: center; }
+.milk-card { padding: 30px; border-radius: 15px; text-align: center; min-width: 150px; }
+.milk-card h3 { font-size: 2.5em; margin-bottom: 10px; }
+.urgent { background: #ff6b6b; color: white; }
+.warning { background: #feca57; color: #333; }
+.normal { background: #48dbfb; color: white; }
+
+.vendors { background: white; border-radius: 20px; padding: 30px; margin-bottom: 30px; box-shadow: 0 20px 40px rgba(0,0,0,0.1); }
+.vendor-item { padding: 15px; border-left: 4px solid #667eea; margin-bottom: 15px; background: #f8f9ff; }
+.vendor-item.pending { border-left-color: #ff6b6b; }
+
+.ai-chat { background: white; border-radius: 20px; padding: 30px; box-shadow: 0 20px 40px rgba(0,0,0,0.1); }
+.ai-output { min-height: 100px; border: 2px dashed #ddd; border-radius: 10px; padding: 20px; margin-bottom: 20px; background: #f8f9ff; }
+.chat-input { display: flex; gap: 10px; }
+.chat-input input { flex: 1; padding: 15px; border: 2px solid #eee; border-radius: 10px; font-size: 16px; }
+.chat-input button, .disrupt-btn { padding: 15px 30px; background: #667eea; color: white; border: none; border-radius: 10px; font-size: 16px; cursor: pointer; transition: all 0.3s; }
+.disrupt-btn { background: #ff6b6b !important; font-size: 18px; padding: 20px 40px; }
+
+
+button:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(0,0,0,0.2); }
+#lastUpdate { background: rgba(255,255,255,0.2); padding: 5px 15px; border-radius: 20px; }
