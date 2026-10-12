@@ -163,3 +163,42 @@ def send_notification(vendor_id: int, quantity: float, db: Session = Depends(get
     db.commit()
 
     return {"success": True}
+
+# 1. Vendor Page Route
+@app.get("/vendor")
+async def vendor_page():
+    vendor_file = TEMPLATE_DIR / "vendor.html"
+    if not vendor_file.exists():
+        raise HTTPException(status_code=404, detail="vendor.html not found")
+    return FileResponse(vendor_file)
+
+# 2. Get Single Vendor Details
+@app.get("/api/vendors/{vendor_id}")
+def get_single_vendor(vendor_id: int, db: Session = Depends(get_db)):
+    v = db.query(Vendor).filter(Vendor.id == vendor_id).first()
+    if not v:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+    return {
+        "id": v.id,
+        "name": v.name,
+        "location": v.location,
+        "required_milk": v.required_milk,
+        "rating": v.rating,
+        "status": v.status,
+        "assigned_quantity": v.assigned_quantity,
+        "notification_time": str(v.notification_time) if v.notification_time else None
+    }
+
+# 3. Model for status change
+class StatusUpdate(BaseModel):
+    status: str
+
+# 4. Vendor Accepts or Rejects Notification
+@app.post("/api/vendors/{vendor_id}/status")
+def update_vendor_status(vendor_id: int, payload: StatusUpdate, db: Session = Depends(get_db)):
+    v = db.query(Vendor).filter(Vendor.id == vendor_id).first()
+    if not v:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+    v.status = payload.status
+    db.commit()
+    return {"success": True, "status": v.status}

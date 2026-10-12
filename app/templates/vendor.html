@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vendor Portal - Fresh Milk BMC</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1d4ed8;
+            --bg: #f8fafc;
+            --card-bg: #ffffff;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --success: #16a34a;
+            --warning: #f59e0b;
+            --border: #e2e8f0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg);
+            color: var(--text-main);
+            margin: 0;
+            padding: 24px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 16px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .card h2 {
+            margin-top: 0;
+            font-size: 1.25rem;
+            color: var(--text-main);
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        label {
+            display: block;
+            font-size: 0.875rem;
+            font-weight: 500;
+            margin-bottom: 6px;
+            color: var(--text-muted);
+        }
+
+        input, select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 0.95rem;
+            box-sizing: border-box;
+        }
+
+        input:focus {
+            outline: 2px solid var(--primary);
+            border-color: transparent;
+        }
+
+        .btn {
+            background-color: var(--primary);
+            color: #fff;
+            border: none;
+            padding: 10px 18px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+            width: 100%;
+        }
+
+        .btn:hover {
+            background-color: var(--primary-dark);
+        }
+
+        .btn-success { background-color: var(--success); }
+        .btn-success:hover { background-color: #15803d; }
+
+        .btn-danger { background-color: #ef4444; }
+        .btn-danger:hover { background-color: #dc2626; }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .status-pending { background: #fef3c7; color: #b45309; }
+        .status-notified { background: #dbeafe; color: #1d4ed8; }
+        .status-accepted { background: #dcfce7; color: #15803d; }
+        .status-rejected { background: #fee2e2; color: #b91c1c; }
+
+        .order-alert {
+            background: #eff6ff;
+            border-left: 4px solid var(--primary);
+            padding: 16px;
+            border-radius: 6px;
+            margin-top: 16px;
+        }
+
+        .action-row {
+            display: flex;
+            gap: 12px;
+            margin-top: 16px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <div>
+            <h1>Milk Vendor Portal</h1>
+            <p style="color: var(--text-muted); margin: 0;">Register and manage your incoming BMC milk allocations</p>
+        </div>
+        <a href="/" style="color: var(--primary); text-decoration: none; font-weight: 500;">← Go to Manager Dashboard</a>
+    </div>
+
+    <div class="grid">
+        <!-- Vendor Registration / Selection -->
+        <div class="card">
+            <h2>1. Vendor Identification</h2>
+            
+            <form id="vendorForm">
+                <div class="form-group">
+                    <label for="vendorName">Vendor / Dairy Name</label>
+                    <input type="text" id="vendorName" placeholder="e.g. Shyam Dairy" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="vendorLocation">Location / Sector</label>
+                    <input type="text" id="vendorLocation" placeholder="e.g. Sector 62, Noida" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="requiredMilk">Milk Supply Demand (Liters)</label>
+                    <input type="number" id="requiredMilk" step="0.5" placeholder="e.g. 50" required>
+                </div>
+
+                <button type="submit" class="btn">Register as Active Vendor</button>
+            </form>
+
+            <hr style="margin: 24px 0; border: 0; border-top: 1px solid var(--border);">
+
+            <div class="form-group">
+                <label for="vendorSelect">Or Switch Active Vendor:</label>
+                <select id="vendorSelect" onchange="loadSelectedVendor(this.value)">
+                    <option value="">-- Select an Existing Vendor --</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Live Orders and Notification Monitor -->
+        <div class="card">
+            <h2>2. Order Allocation Status</h2>
+
+            <div id="noVendorNotice" style="color: var(--text-muted);">
+                Please register or select a vendor from the left to view active orders.
+            </div>
+
+            <div id="vendorLiveCard" style="display: none;">
+                <p><strong>Vendor:</strong> <span id="displayVendorName"></span></p>
+                <p><strong>Demand:</strong> <span id="displayDemand"></span> Liters</p>
+                <p><strong>Status:</strong> <span id="statusBadge" class="status-badge">Pending</span></p>
+
+                <div id="notificationBox" class="order-alert" style="display: none;">
+                    <h3 style="margin-top: 0; color: var(--primary);">🔔 New Allocation Received!</h3>
+                    <p>The BMC Manager has assigned you:</p>
+                    <h1 id="assignedQty" style="margin: 8px 0; color: var(--primary-dark);">0 L</h1>
+                    <p id="assignedTime" style="font-size: 0.85rem; color: var(--text-muted);"></p>
+
+                    <div class="action-row">
+                        <button class="btn btn-success" onclick="updateOrderStatus('accepted')">Accept Order</button>
+                        <button class="btn btn-danger" onclick="updateOrderStatus('rejected')">Reject</button>
+                    </div>
+                </div>
+
+                <div id="idleNotice" style="margin-top: 20px; color: var(--text-muted); font-size: 0.9rem;">
+                    Waiting for allocation instructions from BMC manager...
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let currentVendorId = localStorage.getItem("vendor_id") || null;
+    let pollInterval = null;
+
+    window.onload = async () => {
+        await refreshVendorList();
+        if (currentVendorId) {
+            document.getElementById("vendorSelect").value = currentVendorId;
+            loadSelectedVendor(currentVendorId);
+        }
+    };
+
+    // Load registered vendors into the selector
+    async function refreshVendorList() {
+        try {
+            const res = await fetch("/api/vendors");
+            const vendors = await res.json();
+            const select = document.getElementById("vendorSelect");
+            select.innerHTML = '<option value="">-- Select an Existing Vendor --</option>';
+            
+            vendors.forEach(v => {
+                const opt = document.createElement("option");
+                opt.value = v.id;
+                opt.textContent = `${v.name} (${v.location}) - Req: ${v.required_milk}L`;
+                select.appendChild(opt);
+            });
+        } catch (err) {
+            console.error("Failed to load vendors:", err);
+        }
+    }
+
+    // Register vendor
+    document.getElementById("vendorForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const payload = {
+            name: document.getElementById("vendorName").value,
+            location: document.getElementById("vendorLocation").value,
+            required_milk: parseFloat(document.getElementById("requiredMilk").value),
+            rating: 4.5
+        };
+
+        const res = await fetch("/api/vendors/register", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+
+        if (res.ok) {
+            const data = await res.json();
+            currentVendorId = data.vendor_id;
+            localStorage.setItem("vendor_id", currentVendorId);
+            await refreshVendorList();
+            document.getElementById("vendorSelect").value = currentVendorId;
+            loadSelectedVendor(currentVendorId);
+            alert("Vendor registered successfully!");
+        } else {
+            alert("Failed to register vendor");
+        }
+    });
+
+    // Switch active vendor
+    function loadSelectedVendor(id) {
+        if (!id) {
+            document.getElementById("noVendorNotice").style.display = "block";
+            document.getElementById("vendorLiveCard").style.display = "none";
+            if (pollInterval) clearInterval(pollInterval);
+            return;
+        }
+
+        currentVendorId = id;
+        localStorage.setItem("vendor_id", id);
+        document.getElementById("noVendorNotice").style.display = "none";
+        document.getElementById("vendorLiveCard").style.display = "block";
+
+        fetchVendorDetails();
+        if (pollInterval) clearInterval(pollInterval);
+        pollInterval = setInterval(fetchVendorDetails, 3000); // Poll every 3 seconds for new orders
+    }
+
+    // Fetch single vendor status
+    async function fetchVendorDetails() {
+        if (!currentVendorId) return;
+
+        try {
+            const res = await fetch(`/api/vendors/${currentVendorId}`);
+            if (!res.ok) return;
+            const vendor = await res.json();
+
+            document.getElementById("displayVendorName").textContent = vendor.name;
+            document.getElementById("displayDemand").textContent = vendor.required_milk;
+
+            const badge = document.getElementById("statusBadge");
+            badge.textContent = vendor.status;
+            badge.className = `status-badge status-${vendor.status}`;
+
+            const notificationBox = document.getElementById("notificationBox");
+            const idleNotice = document.getElementById("idleNotice");
+
+            if (vendor.status === "notified") {
+                notificationBox.style.display = "block";
+                idleNotice.style.display = "none";
+                document.getElementById("assignedQty").textContent = `${vendor.assigned_quantity} Liters`;
+                document.getElementById("assignedTime").textContent = `Assigned at: ${vendor.notification_time || "Just now"}`;
+            } else {
+                notificationBox.style.display = "none";
+                idleNotice.style.display = "block";
+                idleNotice.textContent = vendor.status === "accepted" 
+                    ? "✅ Order accepted. Dispatch in progress." 
+                    : (vendor.status === "rejected" ? "❌ Order was declined." : "Waiting for allocation from BMC manager...");
+            }
+        } catch (err) {
+            console.error("Polling error:", err);
+        }
+    }
+
+    // Update order status (accepted / rejected)
+    async function updateOrderStatus(status) {
+        try {
+            const res = await fetch(`/api/vendors/${currentVendorId}/status`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ status: status })
+            });
+
+            if (res.ok) {
+                fetchVendorDetails();
+            } else {
+                alert("Failed to update status");
+            }
+        } catch (err) {
+            console.error("Status update error:", err);
+        }
+    }
+</script>
+
+</body>
+</html>
