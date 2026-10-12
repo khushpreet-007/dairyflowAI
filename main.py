@@ -1,6 +1,7 @@
 import json
 import os
 from datetime import datetime
+from pathlib import Path
 from dotenv import load_dotenv
 
 from fastapi import FastAPI, HTTPException, Depends
@@ -9,25 +10,27 @@ from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-from pathlib import Path
 
-BASE_DIR = Path(__file__).resolve().parent
-
-# Import Vertex AI Gemini client and Cloud SQL setup
+# Correct imports matching your 'app/' folder structure
 from app.client.vertex_client import client
-from app.db import get_db, Vendor, Inventory
-
-STATIC_DIR = BASE_DIR / "static" if (BASE_DIR / "static").exists() else BASE_DIR / "app" / "static"
-TEMPLATE_DIR = BASE_DIR / "templates" if (BASE_DIR / "templates").exists() else BASE_DIR / "app" / "templates"
-
-app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
-
+# If db.py is inside app/, use: from app.db import ...
+# If db.py is in the root, change this to: from db import ...
+try:
+    from app.db import get_db, Vendor, Inventory
+except ImportError:
+    from db import get_db, Vendor, Inventory
 
 load_dotenv()
 
+# --- 1. DEFINE PATHS FIRST ---
+BASE_DIR = Path(__file__).resolve().parent
+STATIC_DIR = BASE_DIR / "app" / "static"
+TEMPLATE_DIR = BASE_DIR / "app" / "templates"
+
+# --- 2. CREATE THE FASTAPI APP INSTANCE ---
 app = FastAPI()
 
-# CORS configuration
+# --- 3. ADD MIDDLEWARE ---
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -36,9 +39,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# app.mount("/static", StaticFiles(directory="static"), name="static")
+# --- 4. MOUNT STATIC FILES (Now 'app' is defined!) ---
+app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
-# Request Models
+# --- 5. MODELS ---
 class VendorRequest(BaseModel):
     name: str
     location: str
@@ -50,11 +54,13 @@ class ManagerQuery(BaseModel):
     inventory: dict
     weather: str = ""
 
+# --- 6. ROUTES ---
 @app.get("/")
 async def home():
-    return FileResponse(TEMPLATE_DIR / "index.html")
-
-# --- BMC MANAGER DASHBOARD ---
+    index_file = TEMPLATE_DIR / "index.html"
+    if not index_file.exists():
+        raise HTTPException(status_code=404, detail="index.html not found")
+    return FileResponse(index_file)
 
 @app.get("/api/inventory")
 def get_inventory(db: Session = Depends(get_db)):
@@ -89,8 +95,6 @@ def get_vendors(db: Session = Depends(get_db)):
         for v in vendors
     ]
 
-# --- VENDOR REGISTRATION ---
-
 @app.post("/api/vendors/register")
 def register_vendor(vendor: VendorRequest, db: Session = Depends(get_db)):
     new_vendor = Vendor(
@@ -104,8 +108,6 @@ def register_vendor(vendor: VendorRequest, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_vendor)
     return {"success": True, "vendor_id": new_vendor.id}
-
-# --- AI VENDOR RECOMMENDATION (Google Gemini AI via Vertex) ---
 
 @app.post("/api/ai/recommend")
 def ai_recommend(query: ManagerQuery, db: Session = Depends(get_db)):
@@ -137,7 +139,6 @@ def ai_recommend(query: ManagerQuery, db: Session = Depends(get_db)):
     """
 
     try:
-        # Call Gemini using the official Google GenAI SDK
         response = client.models.generate_content(
             model="gemini-2.5-flash",
             contents=prompt,
@@ -146,12 +147,9 @@ def ai_recommend(query: ManagerQuery, db: Session = Depends(get_db)):
                 "temperature": 0.3,
             },
         )
-        result = json.loads(response.text)
-        return result
+        return json.loads(response.text)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Gemini AI processing error: {str(e)}")
-
-# --- SEND NOTIFICATION ---
 
 @app.post("/api/notify/{vendor_id}")
 def send_notification(vendor_id: int, quantity: float, db: Session = Depends(get_db)):
