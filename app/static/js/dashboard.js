@@ -12,26 +12,24 @@ async function getWeather(locationName = "Noida") {
         if (weatherEl) weatherEl.textContent = cachedWeather;
         return cachedWeather;
     } catch (e) {
-        return "28°C, Clear [MODERATE RISK]";
+        return "28°C · MODERATE RISK";
     }
 }
 
 async function refreshData() {
     try {
-        // 1. Inventory
         const invRes = await fetch('/api/inventory');
         inventory = await invRes.json();
-        const el0 = document.getElementById('milk0days');
-        if (el0) el0.textContent = inventory.milk_0days + 'L';
+        document.getElementById('milk0days').textContent = inventory.milk_0days + 'L';
         document.getElementById('milk1day').textContent = inventory.milk_1day + 'L';
         document.getElementById('milk2days').textContent = inventory.milk_2days + 'L';
+        const totalEl = document.getElementById('kpiTotalStock');
+        if (totalEl) totalEl.textContent = inventory.total_milk + ' L';
 
-        // 2. Trucks Fleet
         const truckRes = await fetch('/api/trucks');
         trucks = await truckRes.json();
         renderTrucks();
 
-        // 3. Vendors
         const venRes = await fetch('/api/vendors');
         vendors = await venRes.json();
         renderVendors();
@@ -51,23 +49,21 @@ function renderTrucks() {
         const pct = Math.min(100, Math.round((t.current_load / t.capacity) * 100));
         const isTransit = t.status === 'in_transit';
         return `
-            <div class="truck-card">
+            <div class="truck-item">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <strong>🚚 ${t.name}</strong>
-                    <span class="badge ${t.status}">${isTransit ? 'IN TRANSIT' : 'AVAILABLE'}</span>
+                    <strong style="font-size: 0.9rem;">🚚 ${t.name}</strong>
+                    <span class="badge ${t.status}">${isTransit ? 'IN TRANSIT · ' + t.assigned_route.toUpperCase() : 'STANDBY (ANY ROUTE)'}</span>
                 </div>
-                <p style="margin: 8px 0 4px 0; font-size: 0.9rem;">
-                    📍 <strong>Route:</strong> ${t.assigned_route} ${isTransit ? `(ETA: ${t.eta})` : ''}
-                </p>
-                <div style="font-size: 0.85rem; color: #475569;">
-                    Load: <strong>${t.current_load}L / ${t.capacity}L</strong> (${pct}%)
+                <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: #64748b; margin-top: 6px;">
+                    <span>Payload: <strong>${t.current_load}L / ${t.capacity}L</strong> (${pct}%)</span>
+                    <span>${isTransit ? 'ETA: ' + t.eta : 'Ready for assignment'}</span>
                 </div>
                 <div class="truck-bar-bg">
-                    <div class="truck-bar-fill" style="width: ${pct}%; background: ${pct >= 100 ? '#16a34a' : '#2563eb'};"></div>
+                    <div class="truck-bar-fill" style="width: ${pct}%; background: ${pct >= 100 ? '#059669' : '#2563eb'};"></div>
                 </div>
                 ${isTransit ? `
-                    <button onclick="returnTruck(${t.id})" style="width:100%; margin-top:6px; padding:6px; background:#0f172a; color:#fff; border:none; border-radius:6px; cursor:pointer; font-size:0.8rem;">
-                        🔄 Mark Truck Returned (Trip Complete)
+                    <button class="btn btn-outline" onclick="returnTruck(${t.id})" style="width:100%; margin-top:4px; padding:5px; font-size:0.76rem;">
+                        Mark Trip Completed & Recall Unit
                     </button>
                 ` : ''}
             </div>
@@ -95,7 +91,7 @@ function renderVendors() {
     const container = document.getElementById('vendorsList');
     if(!container) return;
     if(vendors.length === 0) {
-        container.innerHTML = '<p>No vendor requests yet. Waiting for registrations...</p>';
+        container.innerHTML = '<p style="color:#64748b; font-size:0.9rem;">No vendor orders in queue. Submit orders via the Vendor Portal.</p>';
         return;
     }
     
@@ -103,29 +99,31 @@ function renderVendors() {
         const status = (v.status || 'pending').toLowerCase();
         
         const assignedInfo = status === 'accepted' 
-            ? `<div style="margin-top:6px; color: #15803d; font-size:0.9rem;">
-                 ✅ <strong>Dispatched: ${v.assigned_quantity}L</strong> | 🚚 <strong>${v.truck_name || 'Truck'}</strong> | ⏱️ <strong>ETA: ${v.eta || '--'}</strong>
+            ? `<div style="margin-top:8px; padding:8px 10px; background:#f0fdf4; border-radius:6px; color:#065f46; font-size:0.82rem;">
+                 <strong>Dispatched:</strong> ${v.assigned_quantity}L &nbsp;|&nbsp; <strong>Unit:</strong> ${v.truck_name || 'Reefer'} &nbsp;|&nbsp; <strong>ETA:</strong> ${v.eta || '--'}
                </div>` 
-            : (status === 'rejected' ? `<div style="margin-top:6px; color: #b91c1c; font-weight: bold;">❌ Order Rejected</div>` : '');
+            : (status === 'rejected' ? `<div style="margin-top:6px; color:#991b1b; font-size:0.82rem; font-weight:600;">Order Unfulfilled (Stock / Capacity Limit)</div>` : '');
 
         const actionButtons = status === 'pending' ? `
             <div class="vendor-actions">
-                <button class="btn-accept" onclick="manualDecision(${v.id}, '${v.name.replace(/'/g, "\\'")}', 'accepted', ${v.required_milk})">
-                    ✅ Accept & Assign Truck (${v.required_milk}L)
+                <button class="btn btn-accept" onclick="manualDecision(${v.id}, '${v.name.replace(/'/g, "\\'")}', 'accepted', ${v.required_milk})">
+                    Approve & Dispatch (${v.required_milk}L)
                 </button>
-                <button class="btn-reject" onclick="manualDecision(${v.id}, '${v.name.replace(/'/g, "\\'")}', 'rejected', 0)">
-                    ❌ Reject & Notify
+                <button class="btn btn-reject" onclick="manualDecision(${v.id}, '${v.name.replace(/'/g, "\\'")}', 'rejected', 0)">
+                    Decline Order
                 </button>
             </div>
         ` : '';
 
         return `
-            <div class="vendor-item ${status}" style="border: 1px solid #e2e8f0; padding: 14px; border-radius: 10px; margin-bottom: 10px; background: #fff;">
+            <div class="vendor-item">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <h4 style="margin: 0;">${v.name}</h4>
-                    <span class="badge ${status}">${status.toUpperCase()}</span>
+                    <strong style="font-size: 0.95rem;">${v.name}</strong>
+                    <span class="badge ${status}">${status}</span>
                 </div>
-                <p style="margin: 6px 0;">📍 <strong>${v.location}</strong> (${v.distance_km} km from Noida Hub) | 🥛 Demand: <strong>${v.required_milk}L</strong> | ⭐ ${v.rating}</p>
+                <div style="font-size: 0.83rem; color: #475569; margin-top: 4px;">
+                    Route: <strong>${v.location}</strong> (${v.distance_km} km) &nbsp;·&nbsp; Demand: <strong>${v.required_milk}L</strong> &nbsp;·&nbsp; SLA Rating: ${v.rating}★
+                </div>
                 ${assignedInfo}
                 ${actionButtons}
             </div>
@@ -146,24 +144,19 @@ async function manualDecision(vendorId, vendorName, decisionStatus, quantity) {
 
         const data = await res.json();
         if (res.ok) {
-            const msg = decisionStatus === 'accepted' 
-                ? `ACCEPTED (${data.assigned_quantity}L loaded onto ${data.truck_name}, ETA: ${data.eta})` 
-                : 'REJECTED';
-            alert(`📱 Notification sent to ${vendorName}: ${msg}`);
             await refreshData();
         } else {
-            alert(`❌ Cannot Accept: ${data.detail || 'Error'}`);
+            alert(`Cannot Dispatch: ${data.detail || 'Error'}`);
         }
     } catch (err) {
         console.error("Manual decision error:", err);
-        alert("Network error sending notification.");
     }
 }
 
 async function handleOrdersByAI() {
     const summaryBox = document.getElementById('aiAutoSummary');
     summaryBox.style.display = 'block';
-    summaryBox.innerHTML = '🤖 <strong>Gemini AI is batching orders by route (Noida 8km, Delhi 25km, Gurugram 50km) onto 30L Trucks...</strong>';
+    summaryBox.innerHTML = '<strong>Running FEFO Stock Depletion & Multi-Route Reefer Allocation...</strong>';
 
     try {
         const weather = await getWeather("Noida");
@@ -178,19 +171,18 @@ async function handleOrdersByAI() {
 
         const data = await res.json();
         const decisionsHtml = (data.decisions || []).map(d => 
-            `<li><strong>${d.name}</strong>: <span class="badge ${d.status}">${d.status.toUpperCase()}</span> (${d.assigned_quantity}L) — <em>${d.reason}</em></li>`
+            `<li style="margin-bottom:4px;"><strong>${d.name}</strong>: <span class="badge ${d.status}">${d.status}</span> (${d.assigned_quantity}L) — <span style="color:#475569;">${d.reason}</span></li>`
         ).join('');
 
         summaryBox.innerHTML = `
-            <h4 style="margin: 0 0 6px 0; color: #1d4ed8;">✨ AI Fleet & FEFO Dispatch Complete</h4>
-            <p style="margin: 0 0 8px 0;">${data.summary}</p>
-            ${decisionsHtml ? `<ul style="margin: 0; padding-left: 20px;">${decisionsHtml}</ul>` : ''}
+            <div style="font-weight: 700; color: #1e40af; margin-bottom: 6px;">AI Dispatch Execution Report</div>
+            <p style="margin: 0 0 10px 0; color: #334155;">${data.summary}</p>
+            ${decisionsHtml ? `<ul style="margin: 0; padding-left: 18px;">${decisionsHtml}</ul>` : ''}
         `;
 
         await refreshData();
     } catch (err) {
-        console.error('AI Auto-Handle failed:', err);
-        summaryBox.innerHTML = '❌ Failed to run AI auto-allocation.';
+        summaryBox.innerHTML = 'Error executing AI dispatch.';
     }
 }
 
@@ -199,7 +191,7 @@ async function askAI() {
     if(!query) return;
     
     const aiDiv = document.getElementById('aiResponse');
-    aiDiv.innerHTML = '🤔 AI is checking distances & truck capacities...';
+    aiDiv.innerHTML = 'Analyzing telemetry & fleet availability...';
     
     try {
         const weather = await getWeather("Noida");
@@ -218,33 +210,30 @@ async function askAI() {
         const targetId = matchedVendor ? matchedVendor.id : 0;
 
         aiDiv.innerHTML = `
-            <h3>✅ ${result.vendor} (Recommended)</h3>
-            <div style="background: #e8f5e8; padding: 15px; border-radius: 10px; margin-bottom: 10px;">
-                <strong>Reasoning:</strong> ${result.reasoning}
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; border-radius: 8px; margin-top: 8px;">
+                <div style="font-weight: 700; color: #0f172a;">Recommended: ${result.vendor} (${result.quantity}L · ETA ${result.delivery_time})</div>
+                <p style="margin: 6px 0; color: #475569;">${result.reasoning}</p>
+                ${targetId ? `
+                    <button class="btn btn-accept" onclick="manualDecision(${targetId}, '${result.vendor.replace(/'/g, "\\'")}', 'accepted', ${result.quantity})">
+                        Approve & Dispatch ${result.vendor}
+                    </button>
+                ` : ''}
             </div>
-            <p><strong>Recommended Quantity:</strong> ${result.quantity}L | <strong>ETA:</strong> ${result.delivery_time}</p>
-            ${targetId ? `
-                <button class="btn-accept" onclick="manualDecision(${targetId}, '${result.vendor.replace(/'/g, "\\'")}', 'accepted', ${result.quantity})">
-                    📱 Accept & Load onto Truck (${result.quantity}L)
-                </button>
-            ` : ''}
         `;
-        
         document.getElementById('aiQuery').value = '';
     } catch(e) {
-        console.error(e);
-        aiDiv.innerHTML = '❌ AI error. Try again.';
+        aiDiv.innerHTML = 'Unable to reach AI advisor.';
     }
 }
 
 async function triggerDisruption() {
     await fetch('/api/inventory/disrupt', { method: 'POST' });
     await refreshData();
-    alert('🚨 CHILLER FAILURE SIMULATED: -7L lost from 1-day stock!');
 }
 
 async function resetInventory() {
     await fetch('/api/inventory/reset', { method: 'POST' });
+    document.getElementById('aiAutoSummary').style.display = 'none';
     await refreshData();
 }
 

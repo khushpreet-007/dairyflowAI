@@ -1,149 +1,360 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Fresh Milk BMC - Intelligent Operations & Fleet</title>
+    <title>BMC Control Tower — Cold-Chain & Fleet Operations</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="/static/css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        .kpi-banner {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        :root {
+            --bg-body: #f1f5f9;
+            --bg-card: #ffffff;
+            --nav-bg: #0f172a;
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --text-dark: #0f172a;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+        }
+
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background-color: var(--bg-body);
+            color: var(--text-dark);
+            margin: 0;
+            padding: 0;
+        }
+
+        /* Top Industrial Navbar */
+        .topbar {
+            background: var(--nav-bg);
+            color: #fff;
+            padding: 16px 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #1e293b;
+        }
+        .topbar-title {
+            display: flex;
+            align-items: center;
             gap: 12px;
-            margin-bottom: 20px;
         }
-        .kpi-card {
-            background: #ffffff;
-            border: 1px solid #e2e8f0;
-            border-left: 4px solid #2563eb;
-            padding: 12px 16px;
-            border-radius: 8px;
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            background: var(--success);
+            border-radius: 50%;
+            box-shadow: 0 0 8px var(--success);
         }
-        .kpi-card small { color: #64748b; font-weight: 600; text-transform: uppercase; font-size: 0.75rem; }
-        .kpi-card h3 { margin: 4px 0 0 0; font-size: 1.25rem; color: #0f172a; }
-        .truck-grid {
+        .topbar h1 {
+            font-size: 1.15rem;
+            font-weight: 700;
+            margin: 0;
+            letter-spacing: -0.01em;
+        }
+        .topbar-sub {
+            font-size: 0.78rem;
+            color: #94a3b8;
+            margin-top: 2px;
+        }
+        .topbar-right {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .portal-link {
+            background: #1e293b;
+            color: #38bdf8;
+            text-decoration: none;
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            border: 1px solid #334155;
+            transition: all 0.2s;
+        }
+        .portal-link:hover { background: #334155; }
+
+        .main-container {
+            max-width: 1280px;
+            margin: 24px auto;
+            padding: 0 24px;
+        }
+
+        /* KPI Telemetry Strip */
+        .kpi-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-            gap: 14px;
-            margin-top: 12px;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
         }
-        .truck-card {
-            background: #fff;
-            border: 1px solid #e2e8f0;
+        @media (max-width: 900px) { .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+        .kpi-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
             border-radius: 10px;
+            padding: 16px 20px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+        }
+        .kpi-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+        }
+        .kpi-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin: 6px 0 2px 0;
+            color: var(--text-dark);
+        }
+        .kpi-sub { font-size: 0.78rem; color: var(--text-muted); }
+
+        /* Two Column Layout */
+        .workspace-grid {
+            display: grid;
+            grid-template-columns: 1.1fr 1.4fr;
+            gap: 24px;
+        }
+        @media (max-width: 1024px) { .workspace-grid { grid-template-columns: 1fr; } }
+
+        .panel {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+        }
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+        .panel-title {
+            font-size: 0.95rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            color: #334155;
+            margin: 0;
+        }
+
+        /* FEFO Silo Cards */
+        .silo-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+        }
+        .silo-box {
+            border: 1px solid var(--border);
+            border-radius: 8px;
             padding: 14px;
+            background: #f8fafc;
+        }
+        .silo-box.urgent { border-top: 3px solid var(--danger); }
+        .silo-box.warning { border-top: 3px solid var(--warning); }
+        .silo-box.normal { border-top: 3px solid var(--success); }
+        .silo-qty { font-size: 1.4rem; font-weight: 700; margin: 4px 0; }
+        .silo-tag { font-size: 0.75rem; color: var(--text-muted); font-weight: 500; }
+
+        /* Fleet Cards */
+        .truck-item {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 14px;
+            margin-bottom: 12px;
+            background: #f8fafc;
         }
         .truck-bar-bg {
             background: #e2e8f0;
-            height: 8px;
-            border-radius: 4px;
+            height: 6px;
+            border-radius: 3px;
             margin: 8px 0;
             overflow: hidden;
         }
         .truck-bar-fill {
-            background: #2563eb;
+            background: var(--primary);
             height: 100%;
-            transition: width 0.3s;
+            transition: width 0.3s ease;
         }
+
+        /* Vendor Order Rows */
+        .vendor-item {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 14px 16px;
+            margin-bottom: 10px;
+            background: #fff;
+            transition: border-color 0.2s;
+        }
+        .vendor-item:hover { border-color: #cbd5e1; }
         .vendor-actions { margin-top: 10px; display: flex; gap: 8px; }
-        .btn-accept { background-color: #16a34a; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; }
-        .btn-reject { background-color: #ef4444; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; }
-        .btn-ai-auto { background: linear-gradient(135deg, #2563eb, #7c3aed); color: white; border: none; padding: 10px 18px; border-radius: 8px; cursor: pointer; font-weight: 700; margin-left: 8px; }
-        .badge { display: inline-block; padding: 3px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 700; }
+
+        /* Buttons & Badges */
+        .btn {
+            border: none;
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.15s;
+        }
+        .btn:hover { opacity: 0.9; }
+        .btn-primary { background: var(--primary); color: #fff; }
+        .btn-ai { background: linear-gradient(135deg, #1e40af, #6d28d9); color: #fff; padding: 9px 16px; }
+        .btn-accept { background: #059669; color: #fff; }
+        .btn-reject { background: #dc2626; color: #fff; }
+        .btn-outline { background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; }
+        .btn-danger-outline { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+
+        .badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
+        }
         .badge.pending { background: #fef3c7; color: #b45309; }
-        .badge.accepted, .badge.available { background: #dcfce7; color: #15803d; }
-        .badge.rejected { background: #fee2e2; color: #b91c1c; }
-        .badge.in_transit { background: #dbeafe; color: #1d4ed8; }
+        .badge.accepted, .badge.available { background: #d1fae5; color: #065f46; }
+        .badge.rejected { background: #fee2e2; color: #991b1b; }
+        .badge.in_transit { background: #dbeafe; color: #1e40af; }
+
+        .chat-row { display: flex; gap: 8px; margin-top: 12px; }
+        .chat-row input {
+            flex: 1;
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 0.88rem;
+        }
     </style>
 </head>
 <body>
-    <div class="dashboard">
-        <!-- HEADER -->
-        <header>
-            <div>
-                <h1>🥛 Intelligent BMC Supply Chain & Fleet Control</h1>
-                <small style="color: #64748b;">FEFO Cold-Chain Inventory + Route-Batched Refrigerated Fleet (Noida Hub)</small>
-            </div>
-            <div class="stats">
-                <a href="/vendor" target="_blank" style="margin-right: 15px; color: #2563eb; font-weight: bold;">🔗 Open Vendor Portal</a>
-                <span id="lastUpdate">Last sync: --</span>
-            </div>
-        </header>
 
-        <!-- INDUSTRIAL KPIs -->
-        <div class="kpi-banner">
-            <div class="kpi-card" style="border-left-color: #16a34a;">
-                <small>🌱 Spoilage Prevented (FEFO)</small>
-                <h3 id="kpiDispatched">0 L</h3>
+    <!-- TOP INDUSTRIAL HEADER -->
+    <nav class="topbar">
+        <div class="topbar-title">
+            <div class="status-dot"></div>
+            <div>
+                <h1>NOIDA BMC — COLD-CHAIN & FLEET CONTROL TOWER</h1>
+                <div class="topbar-sub">Automated FEFO Inventory Allocation & Multi-Route Reefer Dispatch</div>
             </div>
-            <div class="kpi-card" style="border-left-color: #7c3aed;">
-                <small>💰 Revenue Protected (@ ₹55/L)</small>
-                <h3 id="kpiRevenue">₹0</h3>
+        </div>
+        <div class="topbar-right">
+            <span id="lastUpdate" style="font-size: 0.8rem; color: #94a3b8;">Syncing...</span>
+            <a href="/vendor" target="_blank" class="portal-link">Open Vendor Portal ↗</a>
+        </div>
+    </nav>
+
+    <div class="main-container">
+        <!-- TELEMETRY KPI STRIP -->
+        <div class="kpi-grid">
+            <div class="kpi-card">
+                <div class="kpi-label">Total Chiller Volume</div>
+                <div class="kpi-value" id="kpiTotalStock">45.0 L</div>
+                <div class="kpi-sub">Active across 3 thermal batches</div>
             </div>
-            <div class="kpi-card" style="border-left-color: #f59e0b;">
-                <small>🌡️ Live Noida Hub Weather</small>
-                <h3 id="liveWeatherDisplay" style="font-size: 0.95rem;">Fetching...</h3>
+            <div class="kpi-card">
+                <div class="kpi-label">Spoilage Prevented (FEFO)</div>
+                <div class="kpi-value" id="kpiDispatched" style="color: #059669;">0.0 L</div>
+                <div class="kpi-sub">Dispatched before expiration</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">Revenue Protected</div>
+                <div class="kpi-value" id="kpiRevenue">₹0</div>
+                <div class="kpi-sub">Valued at ₹55 / Liter wholesale</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">Hub Ambient Telemetry</div>
+                <div class="kpi-value" id="liveWeatherDisplay" style="font-size: 1.05rem; margin-top: 10px;">Loading...</div>
+                <div class="kpi-sub">Noida Sector-62 Sensor Feed</div>
             </div>
         </div>
 
-        <!-- INVENTORY -->
-        <section class="inventory">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <h2>📦 Chiller Inventory (FEFO Depletion)</h2>
-                <button onclick="resetInventory()" style="background:#64748b; color:#fff; border:none; padding:6px 12px; border-radius:6px; cursor:pointer;">🔄 Reset Stock & Recall All Trucks</button>
-            </div>
-            <div class="milk-cards">
-                <div class="milk-card urgent">
-                    <h3 id="milk0days">30L</h3>
-                    <span>0 days spoilage (Dispatch 1st)</span>
+        <div class="workspace-grid">
+            <!-- LEFT COLUMN: CHILLER SILOS + FLEET + AI COPILOT -->
+            <div>
+                <!-- CHILLER SILOS -->
+                <div class="panel">
+                    <div class="panel-header">
+                        <h2 class="panel-title">Chiller Batch Silos (FEFO Priority)</h2>
+                        <div style="display: flex; gap: 6px;">
+                            <button class="btn btn-danger-outline" onclick="triggerDisruption()">Simulate Cooling Fault (-7L)</button>
+                            <button class="btn btn-outline" onclick="resetInventory()">Reset System</button>
+                        </div>
+                    </div>
+                    <div class="silo-grid">
+                        <div class="silo-box urgent">
+                            <div class="kpi-label" style="color: #dc2626;">Batch A · 0-Day</div>
+                            <div class="silo-qty" id="milk0days">30L</div>
+                            <div class="silo-tag">Critical — Dispatch 1st</div>
+                        </div>
+                        <div class="silo-box warning">
+                            <div class="kpi-label" style="color: #d97706;">Batch B · 1-Day</div>
+                            <div class="silo-qty" id="milk1day">10L</div>
+                            <div class="silo-tag">Standard — Dispatch 2nd</div>
+                        </div>
+                        <div class="silo-box normal">
+                            <div class="kpi-label" style="color: #059669;">Batch C · 2-Day</div>
+                            <div class="silo-qty" id="milk2days">5L</div>
+                            <div class="silo-tag">Fresh — Dispatch 3rd</div>
+                        </div>
+                    </div>
                 </div>
-                <div class="milk-card warning">
-                    <h3 id="milk1day">10L</h3>
-                    <span>1 day spoilage (Dispatch 2nd)</span>
-                </div>
-                <div class="milk-card normal">
-                    <h3 id="milk2days">5L</h3>
-                    <span>2 days spoilage (Dispatch 3rd)</span>
-                </div>
-            </div>
-        </section>
 
-        <!-- REFRIGERATED TRUCK FLEET (NEW!) -->
-        <section class="fleet" style="margin: 24px 0;">
-            <h2>🚚 Refrigerated Fleet Allocation (Max 30L / Truck — Same-Route Batching)</h2>
-            <div id="trucksList" class="truck-grid">Loading fleet...</div>
-        </section>
+                <!-- UNIVERSAL REEFER FLEET -->
+                <div class="panel">
+                    <div class="panel-header">
+                        <h2 class="panel-title">Universal Reefer Fleet (30L Cap / Unit)</h2>
+                        <span style="font-size: 0.75rem; color: var(--text-muted);">Any unit serves Noida, Delhi, or Gurugram</span>
+                    </div>
+                    <div id="trucksList">Loading fleet units...</div>
+                </div>
 
-        <!-- VENDORS LIST -->
-        <section class="vendors">
-            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 12px;">
-                <h2 style="margin: 0;">🛒 Registered Vendor Orders</h2>
-                <div>
-                    <button onclick="refreshData()">🔄 Refresh</button>
-                    <button class="btn-ai-auto" onclick="handleOrdersByAI()">🤖 Handle Orders & Fleet by AI</button>
+                <!-- AI LOGISTICS COPILOT -->
+                <div class="panel">
+                    <div class="panel-header">
+                        <h2 class="panel-title">Gemini Operations Copilot</h2>
+                    </div>
+                    <div id="aiResponse" style="font-size: 0.88rem; color: #334155;">Ask Gemini to analyze route bottlenecks or optimal vendor allocation.</div>
+                    <div class="chat-row">
+                        <input type="text" id="aiQuery" placeholder="e.g., Which pending vendor should we prioritize first?">
+                        <button class="btn btn-primary" onclick="askAI()">Analyze</button>
+                    </div>
                 </div>
             </div>
 
-            <div id="aiAutoSummary" style="display: none; background: #eff6ff; border-left: 4px solid #2563eb; padding: 12px 16px; border-radius: 8px; margin-bottom: 16px;"></div>
-            <div id="vendorsList">Refreshing...</div>
-        </section>
+            <!-- RIGHT COLUMN: VENDOR DISPATCH QUEUE -->
+            <div>
+                <div class="panel">
+                    <div class="panel-header">
+                        <h2 class="panel-title">Incoming Vendor Dispatch Queue</h2>
+                        <div style="display: flex; gap: 8px;">
+                            <button class="btn btn-outline" onclick="refreshData()">Sync</button>
+                            <button class="btn btn-ai" onclick="handleOrdersByAI()">⚡ Auto-Allocate All Pending (Gemini AI)</button>
+                        </div>
+                    </div>
 
-        <!-- AI CHAT ADVISOR -->
-        <section class="ai-chat">
-            <h2>💬 Ask AI Logistics Advisor</h2>
-            <div id="aiResponse" class="ai-output"></div>
-            <div class="chat-input">
-                <input type="text" id="aiQuery" placeholder="Ask AI: Which vendor is closest and can share a truck?">
-                <button onclick="askAI()">Ask AI</button>
+                    <div id="aiAutoSummary" style="display: none; background: #f8fafc; border-left: 3px solid var(--primary); padding: 14px; border-radius: 6px; margin-bottom: 16px; font-size: 0.86rem;"></div>
+                    <div id="vendorsList">Loading vendor orders...</div>
+                </div>
             </div>
-        </section>
-
-        <!-- TRIGGER DISRUPTION -->
-        <section class="demo">
-            <button class="disrupt-btn" onclick="triggerDisruption()">🚨 Simulate Chiller Failure (-7L)</button>
-        </section>
+        </div>
     </div>
 
-    <script src="/static/js/dashboard.js?v=5"></script>
+    <script src="/static/js/dashboard.js?v=6"></script>
 </body>
 </html>

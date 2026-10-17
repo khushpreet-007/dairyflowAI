@@ -3,188 +3,345 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vendor Portal - Fresh Milk BMC</title>
-    <link rel="stylesheet" href="/static/css/style.css">
+    <title>Vendor Dispatch Portal — BMC Cold-Chain</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --primary: #2563eb;
-            --primary-dark: #1d4ed8;
-            --bg: #f8fafc;
+            --bg-body: #f1f5f9;
             --card-bg: #ffffff;
-            --text-main: #0f172a;
+            --nav-bg: #0f172a;
+            --primary: #2563eb;
+            --text-dark: #0f172a;
             --text-muted: #64748b;
-            --success: #16a34a;
-            --danger: #ef4444;
+            --success: #059669;
+            --danger: #dc2626;
             --border: #e2e8f0;
         }
+
+        * { box-sizing: border-box; }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background-color: var(--bg);
-            color: var(--text-main);
+            font-family: 'Inter', -apple-system, sans-serif;
+            background-color: var(--bg-body);
+            color: var(--text-dark);
             margin: 0;
-            padding: 24px;
+            padding: 0;
         }
-        .container { max-width: 900px; margin: 0 auto; }
-        .header {
+
+        .topbar {
+            background: var(--nav-bg);
+            color: #fff;
+            padding: 16px 32px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 24px;
-            border-bottom: 1px solid var(--border);
-            padding-bottom: 16px;
         }
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
-        @media (max-width: 768px) { .grid { grid-template-columns: 1fr; } }
+        .topbar h1 { font-size: 1.1rem; margin: 0; font-weight: 700; }
+        .back-link {
+            color: #38bdf8;
+            text-decoration: none;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .container { max-width: 1040px; margin: 28px auto; padding: 0 24px; }
+        .grid { display: grid; grid-template-columns: 1fr 1.25fr; gap: 24px; }
+        @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } }
+
         .card {
             background: var(--card-bg);
             border: 1px solid var(--border);
-            border-radius: 12px;
+            border-radius: 10px;
             padding: 24px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.03);
         }
-        .card h2 { margin-top: 0; font-size: 1.25rem; }
+        .card h2 {
+            margin-top: 0;
+            font-size: 0.95rem;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            color: #334155;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+
         .form-group { margin-bottom: 16px; }
-        label { display: block; font-size: 0.875rem; font-weight: 500; margin-bottom: 6px; color: var(--text-muted); }
+        label { display: block; font-size: 0.82rem; font-weight: 600; margin-bottom: 6px; color: #475569; }
         input, select {
             width: 100%;
             padding: 10px 12px;
             border: 1px solid var(--border);
-            border-radius: 8px;
-            font-size: 0.95rem;
-            box-sizing: border-box;
+            border-radius: 6px;
+            font-size: 0.9rem;
             background: #fff;
         }
+
         .btn {
             background-color: var(--primary);
             color: #fff;
             border: none;
-            padding: 10px 18px;
-            border-radius: 8px;
+            padding: 11px 18px;
+            border-radius: 6px;
             font-weight: 600;
+            font-size: 0.88rem;
             cursor: pointer;
             width: 100%;
         }
-        .btn:hover { background-color: var(--primary-dark); }
-        .status-badge {
+
+        .badge {
             display: inline-block;
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 0.85rem;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.75rem;
             font-weight: 700;
             text-transform: uppercase;
         }
         .status-pending { background: #fef3c7; color: #b45309; }
-        .status-accepted { background: #dcfce7; color: #15803d; }
-        .status-rejected { background: #fee2e2; color: #b91c1c; }
-        .alert-accepted {
-            background: #f0fdf4;
-            border-left: 4px solid var(--success);
-            padding: 16px;
-            border-radius: 8px;
-            margin-top: 16px;
+        .status-accepted { background: #d1fae5; color: #065f46; }
+        .status-rejected { background: #fee2e2; color: #991b1b; }
+
+        /* --- LIVE ANIMATED TRUCK TELEMETRY MAP --- */
+        .route-map-card {
+            background: #0f172a;
+            color: #f8fafc;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 18px;
+            position: relative;
+            overflow: hidden;
         }
-        .alert-rejected {
-            background: #fef2f2;
-            border-left: 4px solid var(--danger);
-            padding: 16px;
-            border-radius: 8px;
-            margin-top: 16px;
+        .route-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.78rem;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            margin-bottom: 18px;
         }
-        .logistics-box {
-            background: #ffffff;
-            border: 1px solid #bbf7d0;
-            padding: 10px 12px;
-            border-radius: 6px;
-            margin-top: 10px;
-            font-size: 0.9rem;
+        .route-nodes {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: relative;
+            margin: 28px 0 16px 0;
         }
+        .node-point {
+            z-index: 2;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+        }
+        .node-circle {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #38bdf8;
+            border: 3px solid #0284c7;
+            box-shadow: 0 0 10px #38bdf8;
+        }
+        .node-circle.dest {
+            background: #10b981;
+            border-color: #059669;
+            box-shadow: 0 0 12px #10b981;
+        }
+        .node-label {
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: #e2e8f0;
+        }
+
+        /* Highway Track Line */
+        .highway-track {
+            position: absolute;
+            top: 7px;
+            left: 35px;
+            right: 35px;
+            height: 4px;
+            background: #334155;
+            border-radius: 2px;
+            z-index: 1;
+        }
+        .highway-progress {
+            height: 100%;
+            background: linear-gradient(90deg, #38bdf8, #10b981);
+            width: 100%;
+            animation: pulseGlow 2s infinite alternate;
+        }
+
+        /* Animated Moving Truck */
+        .moving-truck {
+            position: absolute;
+            top: -18px;
+            left: 35px;
+            z-index: 3;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            animation: driveTruck 5s ease-in-out infinite;
+        }
+        .truck-icon {
+            font-size: 1.5rem;
+            /* Flip truck emoji so it faces RIGHT toward the destination */
+            transform: scaleX(-1);
+            filter: drop-shadow(0 2px 6px rgba(56, 189, 248, 0.6));
+        }
+        .truck-tag {
+            background: #1e293b;
+            border: 1px solid #38bdf8;
+            color: #38bdf8;
+            font-size: 0.65rem;
+            font-weight: 700;
+            padding: 2px 6px;
+            border-radius: 4px;
+            white-space: nowrap;
+            margin-top: -2px;
+        }
+
+        @keyframes driveTruck {
+            0% { left: 8%; }
+            85% { left: 78%; }
+            100% { left: 78%; }
+        }
+        @keyframes pulseGlow {
+            from { opacity: 0.7; }
+            to { opacity: 1; }
+        }
+
+        .telemetry-metrics {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            border-top: 1px solid #1e293b;
+            padding-top: 14px;
+            margin-top: 12px;
+        }
+        .t-metric small { display: block; font-size: 0.7rem; color: #94a3b8; }
+        .t-metric strong { font-size: 0.9rem; color: #fff; }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <div class="header">
-        <div>
-            <h1>Milk Vendor Portal</h1>
-            <p style="color: var(--text-muted); margin: 0;">Place milk requests & track live refrigerated truck ETA</p>
-        </div>
-        <a href="/" style="color: var(--primary); text-decoration: none; font-weight: 600;">← Go to BMC Dashboard</a>
-    </div>
+<nav class="topbar">
+    <h1>MILK VENDOR ORDER & LIVE TELEMETRY PORTAL</h1>
+    <a href="/" class="back-link">← Return to BMC Control Tower</a>
+</nav>
 
+<div class="container">
     <div class="grid">
-        <!-- Vendor Registration -->
+        <!-- Order Registration -->
         <div class="card">
-            <h2>1. Place Milk Order Request</h2>
+            <h2>1. Submit Milk Requisition</h2>
             <form id="vendorForm">
                 <div class="form-group">
-                    <label for="vendorName">Vendor / Dairy Name</label>
-                    <input type="text" id="vendorName" placeholder="e.g. Mother Dairy Booth #12" required>
+                    <label for="vendorName">Vendor / Dairy Facility Name</label>
+                    <input type="text" id="vendorName" placeholder="e.g. Mother Dairy Hub" required>
                 </div>
 
                 <div class="form-group">
-                    <label for="vendorLocation">Location / Route Hub</label>
+                    <label for="vendorLocation">Destination Route Hub</label>
                     <select id="vendorLocation" required>
-                        <option value="Noida">Noida (8 km from BMC | ~20 mins)</option>
-                        <option value="Delhi">Delhi (25 km from BMC | ~45 mins)</option>
-                        <option value="Gurugram">Gurugram (50 km from BMC | ~90 mins)</option>
+                        <option value="Noida">Noida (8 km from BMC · ~20 mins)</option>
+                        <option value="Delhi">Delhi (25 km from BMC · ~45 mins)</option>
+                        <option value="Gurugram">Gurugram (50 km from BMC · ~90 mins)</option>
                     </select>
                 </div>
 
                 <div class="form-group">
-                    <label for="requiredMilk">Required Milk Quantity (Liters)</label>
-                    <input type="number" id="requiredMilk" step="0.5" min="1" max="30" placeholder="e.g. 15 (Max 30L per truck)" required>
+                    <label for="requiredMilk">Requisition Volume (Liters)</label>
+                    <input type="number" id="requiredMilk" step="0.5" min="1" max="60" placeholder="e.g. 20" required>
                 </div>
 
-                <button type="submit" class="btn">Submit Order to BMC</button>
+                <button type="submit" class="btn">Transmit Order to BMC</button>
             </form>
 
             <hr style="margin: 24px 0; border: 0; border-top: 1px solid var(--border);">
 
-            <div class="form-group">
-                <label for="vendorSelect">Switch Vendor Profile to Track Order:</label>
+            <div class="form-group" style="margin-bottom: 0;">
+                <label for="vendorSelect">Select Active Vendor to Track Shipment:</label>
                 <select id="vendorSelect" onchange="loadSelectedVendor(this.value)">
-                    <option value="">-- Select Registered Vendor --</option>
+                    <option value="">-- Choose Registered Vendor --</option>
                 </select>
             </div>
         </div>
 
-        <!-- Read-Only Live Notification & Truck Tracker -->
+        <!-- Live Shipment & Animated Truck Tracker -->
         <div class="card">
-            <h2>2. Live Dispatch & Truck Status</h2>
+            <h2>2. Live Cold-Chain Shipment Tracker</h2>
 
-            <div id="noVendorNotice" style="color: var(--text-muted);">
-                Submit an order or select your vendor profile on the left to track your delivery.
+            <div id="noVendorNotice" style="color: var(--text-muted); font-size: 0.9rem;">
+                Submit an order or choose a vendor from the dropdown to view live GPS route animation.
             </div>
 
             <div id="vendorLiveCard" style="display: none;">
-                <p><strong>Vendor Name:</strong> <span id="displayVendorName"></span></p>
-                <p><strong>Route Location:</strong> <span id="displayLocation"></span></p>
-                <p><strong>Requested Quantity:</strong> <span id="displayDemand"></span> Liters</p>
-                <p><strong>Order Status:</strong> <span id="statusBadge" class="status-badge">PENDING</span></p>
-
-                <!-- Shown when BMC Accepts the order -->
-                <div id="acceptedBox" class="alert-accepted" style="display: none;">
-                    <h3 style="margin-top: 0; color: var(--success);">✅ Order Dispatched!</h3>
-                    <p style="margin: 4px 0;">Allocated Milk Quantity:</p>
-                    <h1 id="assignedQty" style="margin: 4px 0 10px 0; color: #15803d;">0 L</h1>
-
-                    <div class="logistics-box">
-                        <p style="margin: 4px 0;">🚚 <strong>Assigned Truck:</strong> <span id="displayTruck">--</span></p>
-                        <p style="margin: 4px 0;">⏱️ <strong>Estimated Arrival (ETA):</strong> <span id="displayEta">--</span></p>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <div>
+                        <div style="font-size: 1.1rem; font-weight: 700;" id="displayVendorName">--</div>
+                        <div style="font-size: 0.82rem; color: var(--text-muted);">Requested: <span id="displayDemand">0</span>L</div>
                     </div>
-                    <p id="acceptedTime" style="font-size: 0.8rem; color: var(--text-muted); margin: 10px 0 0 0;"></p>
+                    <span id="statusBadge" class="badge status-pending">PENDING</span>
                 </div>
 
-                <!-- Shown when BMC Rejects the order -->
-                <div id="rejectedBox" class="alert-rejected" style="display: none;">
-                    <h3 style="margin-top: 0; color: var(--danger);">❌ Order Cannot Be Fulfilled</h3>
-                    <p style="margin: 4px 0;">Unfortunately, BMC could not fulfill your order due to chiller stock or fleet capacity limits for this cycle.</p>
-                    <p id="rejectedTime" style="font-size: 0.8rem; color: var(--text-muted); margin-top: 8px;"></p>
+                <!-- SHOWN WHEN ACCEPTED: LIVE ANIMATED TRUCK ROUTE -->
+                <div id="acceptedBox" style="display: none;">
+                    <div class="route-map-card">
+                        <div class="route-header">
+                            <span>🟢 LIVE COLD-CHAIN GPS TRACKING</span>
+                            <span>TEMP: 3.8°C (CHILLED)</span>
+                        </div>
+
+                        <div class="route-nodes">
+                            <div class="highway-track">
+                                <div class="highway-progress"></div>
+                            </div>
+
+                            <!-- Animated Reefer Truck -->
+                            <div class="moving-truck">
+                                <div class="truck-icon">🚚</div>
+                                <div class="truck-tag" id="animTruckLabel">Reefer-Unit-01</div>
+                            </div>
+
+                            <!-- Source Node -->
+                            <div class="node-point">
+                                <div class="node-circle"></div>
+                                <div class="node-label">Noida BMC Hub</div>
+                            </div>
+
+                            <!-- Destination Node -->
+                            <div class="node-point">
+                                <div class="node-circle dest"></div>
+                                <div class="node-label" id="animDestLabel">Destination</div>
+                            </div>
+                        </div>
+
+                        <div class="telemetry-metrics">
+                            <div class="t-metric">
+                                <small>Allocated Volume</small>
+                                <strong id="assignedQty" style="color: #34d399;">0 L</strong>
+                            </div>
+                            <div class="t-metric">
+                                <small>Assigned Fleet Unit</small>
+                                <strong id="displayTruck">--</strong>
+                            </div>
+                            <div class="t-metric">
+                                <small>Est. Arrival (ETA)</small>
+                                <strong id="displayEta">--</strong>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
-                <!-- Shown while Pending -->
-                <div id="pendingBox" style="margin-top: 20px; color: var(--text-muted); font-size: 0.95rem;">
-                    ⏳ Waiting for BMC Manager / AI Fleet Dispatcher to assign a refrigerated truck...
+                <!-- SHOWN WHEN REJECTED -->
+                <div id="rejectedBox" style="display: none; background: #fef2f2; border-left: 4px solid var(--danger); padding: 14px; border-radius: 6px; margin-top: 16px;">
+                    <strong style="color: #991b1b;">Order Unfulfilled</strong>
+                    <p style="margin: 6px 0 0 0; font-size: 0.85rem; color: #7f1d1d;">
+                        BMC could not fulfill this requisition during the current cycle due to chiller inventory or fleet capacity constraints.
+                    </p>
+                </div>
+
+                <!-- SHOWN WHILE PENDING -->
+                <div id="pendingBox" style="margin-top: 20px; padding: 16px; background: #f8fafc; border-radius: 8px; color: var(--text-muted); font-size: 0.88rem;">
+                    ⏳ Order is queued at the Noida BMC Control Tower. Waiting for FEFO truck assignment...
                 </div>
             </div>
         </div>
@@ -208,12 +365,12 @@
             const res = await fetch("/api/vendors");
             const vendors = await res.json();
             const select = document.getElementById("vendorSelect");
-            select.innerHTML = '<option value="">-- Select Registered Vendor --</option>';
+            select.innerHTML = '<option value="">-- Choose Registered Vendor --</option>';
             
             vendors.forEach(v => {
                 const opt = document.createElement("option");
                 opt.value = v.id;
-                opt.textContent = `${v.name} (${v.location}) - ${v.required_milk}L [${v.status.toUpperCase()}]`;
+                opt.textContent = `${v.name} (${v.location}) — ${v.required_milk}L [${v.status.toUpperCase()}]`;
                 select.appendChild(opt);
             });
         } catch (err) {
@@ -244,9 +401,6 @@
             document.getElementById("vendorSelect").value = currentVendorId;
             loadSelectedVendor(currentVendorId);
             document.getElementById("vendorForm").reset();
-            alert("✅ Order submitted to BMC!");
-        } else {
-            alert("❌ Failed to submit order.");
         }
     });
 
@@ -278,12 +432,11 @@
             const status = (vendor.status || "pending").toLowerCase();
 
             document.getElementById("displayVendorName").textContent = vendor.name;
-            document.getElementById("displayLocation").textContent = `${vendor.location} (${vendor.distance_km} km from Noida Hub)`;
             document.getElementById("displayDemand").textContent = vendor.required_milk;
 
             const badge = document.getElementById("statusBadge");
             badge.textContent = status.toUpperCase();
-            badge.className = `status-badge status-${status}`;
+            badge.className = `badge status-${status}`;
 
             const acceptedBox = document.getElementById("acceptedBox");
             const rejectedBox = document.getElementById("rejectedBox");
@@ -293,15 +446,15 @@
                 acceptedBox.style.display = "block";
                 rejectedBox.style.display = "none";
                 pendingBox.style.display = "none";
-                document.getElementById("assignedQty").textContent = `${vendor.assigned_quantity} Liters`;
-                document.getElementById("displayTruck").textContent = vendor.truck_name || "Assigned Refrigerated Van";
-                document.getElementById("displayEta").textContent = vendor.eta || "~30 mins";
-                document.getElementById("acceptedTime").textContent = `Dispatched at: ${vendor.notification_time || "Just now"}`;
+                document.getElementById("assignedQty").textContent = `${vendor.assigned_quantity} L`;
+                document.getElementById("displayTruck").textContent = vendor.truck_name || "Reefer-Unit-01";
+                document.getElementById("animTruckLabel").textContent = vendor.truck_name || "Reefer-Unit-01";
+                document.getElementById("animDestLabel").textContent = `${vendor.location} (${vendor.distance_km} km)`;
+                document.getElementById("displayEta").textContent = vendor.eta || "20 mins";
             } else if (status === "rejected") {
                 acceptedBox.style.display = "none";
                 rejectedBox.style.display = "block";
                 pendingBox.style.display = "none";
-                document.getElementById("rejectedTime").textContent = `Updated at: ${vendor.notification_time || "Just now"}`;
             } else {
                 acceptedBox.style.display = "none";
                 rejectedBox.style.display = "none";
