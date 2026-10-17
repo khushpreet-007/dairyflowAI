@@ -13,6 +13,12 @@ from sqlalchemy.orm import Session
 
 # Correct imports matching your 'app/' folder structure
 from app.client.vertex_client import client
+from typing import Optional
+from pydantic import BaseModel
+
+class NotifyRequest(BaseModel):
+    quantity: float = 30.0
+
 # If db.py is inside app/, use: from app.db import ...
 # If db.py is in the root, change this to: from db import ...
 try:
@@ -181,19 +187,22 @@ def ai_recommend(query: ManagerQuery, db: Session = Depends(get_db)):
             "quantity": top_vendor["required_milk"],
             "delivery_time": "10:30 AM"
         }
-        
+
+
 @app.post("/api/notify/{vendor_id}")
-def send_notification(vendor_id: int, quantity: float, db: Session = Depends(get_db)):
+def send_notification(vendor_id: int, payload: NotifyRequest, db: Session = Depends(get_db)):
     vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
     if not vendor:
         raise HTTPException(status_code=404, detail="Vendor not found")
 
     vendor.status = "notified"
-    vendor.assigned_quantity = quantity
+    vendor.assigned_quantity = payload.quantity
     vendor.notification_time = datetime.utcnow()
     db.commit()
+    db.refresh(vendor)
 
-    return {"success": True}
+    print(f"✅ Updated Vendor {vendor.name} to status: {vendor.status} with {payload.quantity}L")
+    return {"success": True, "status": vendor.status, "vendor_id": vendor.id}
 
 # 1. Vendor Page Route
 @app.get("/vendor")
