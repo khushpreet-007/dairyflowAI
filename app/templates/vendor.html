@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -18,7 +19,10 @@
             --border: #e2e8f0;
         }
 
-        * { box-sizing: border-box; }
+        * {
+            box-sizing: border-box;
+        }
+
         body {
             font-family: 'Inter', -apple-system, sans-serif;
             background-color: var(--bg-body);
@@ -35,7 +39,13 @@
             justify-content: space-between;
             align-items: center;
         }
-        .topbar h1 { font-size: 1.1rem; margin: 0; font-weight: 700; }
+
+        .topbar h1 {
+            font-size: 1.1rem;
+            margin: 0;
+            font-weight: 700;
+        }
+
         .back-link {
             color: #38bdf8;
             text-decoration: none;
@@ -43,17 +53,32 @@
             font-weight: 600;
         }
 
-        .container { max-width: 1040px; margin: 28px auto; padding: 0 24px; }
-        .grid { display: grid; grid-template-columns: 1fr 1.25fr; gap: 24px; }
-        @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } }
+        .container {
+            max-width: 1040px;
+            margin: 28px auto;
+            padding: 0 24px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1.25fr;
+            gap: 24px;
+        }
+
+        @media (max-width: 800px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
 
         .card {
             background: var(--card-bg);
             border: 1px solid var(--border);
             border-radius: 10px;
             padding: 24px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
         }
+
         .card h2 {
             margin-top: 0;
             font-size: 0.95rem;
@@ -64,9 +89,20 @@
             border-bottom: 1px solid var(--border);
         }
 
-        .form-group { margin-bottom: 16px; }
-        label { display: block; font-size: 0.82rem; font-weight: 600; margin-bottom: 6px; color: #475569; }
-        input, select {
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        label {
+            display: block;
+            font-size: 0.82rem;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: #475569;
+        }
+
+        input,
+        select {
             width: 100%;
             padding: 10px 12px;
             border: 1px solid var(--border);
@@ -95,9 +131,21 @@
             font-weight: 700;
             text-transform: uppercase;
         }
-        .status-pending { background: #fef3c7; color: #b45309; }
-        .status-accepted { background: #d1fae5; color: #065f46; }
-        .status-rejected { background: #fee2e2; color: #991b1b; }
+
+        .status-pending {
+            background: #fef3c7;
+            color: #b45309;
+        }
+
+        .status-accepted {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .status-rejected {
+            background: #fee2e2;
+            color: #991b1b;
+        }
 
         /* --- LIVE ANIMATED TRUCK TELEMETRY MAP --- */
         .route-map-card {
@@ -109,6 +157,7 @@
             position: relative;
             overflow: hidden;
         }
+
         .route-header {
             display: flex;
             justify-content: space-between;
@@ -118,6 +167,7 @@
             letter-spacing: 0.04em;
             margin-bottom: 18px;
         }
+
         .route-nodes {
             display: flex;
             justify-content: space-between;
@@ -125,6 +175,7 @@
             position: relative;
             margin: 28px 0 16px 0;
         }
+
         .node-point {
             z-index: 2;
             display: flex;
@@ -132,6 +183,7 @@
             align-items: center;
             gap: 6px;
         }
+
         .node-circle {
             width: 16px;
             height: 16px;
@@ -140,11 +192,13 @@
             border: 3px solid #0284c7;
             box-shadow: 0 0 10px #38bdf8;
         }
+
         .node-circle.dest {
             background: #10b981;
             border-color: #059669;
             box-shadow: 0 0 12px #10b981;
         }
+
         .node-label {
             font-size: 0.78rem;
             font-weight: 600;
@@ -162,6 +216,7 @@
             border-radius: 2px;
             z-index: 1;
         }
+
         .highway-progress {
             height: 100%;
             background: linear-gradient(90deg, #38bdf8, #10b981);
@@ -180,12 +235,14 @@
             align-items: center;
             animation: driveTruck 5s ease-in-out infinite;
         }
+
         .truck-icon {
             font-size: 1.5rem;
             /* Flip truck emoji so it faces RIGHT toward the destination */
             transform: scaleX(-1);
             filter: drop-shadow(0 2px 6px rgba(56, 189, 248, 0.6));
         }
+
         .truck-tag {
             background: #1e293b;
             border: 1px solid #38bdf8;
@@ -199,13 +256,27 @@
         }
 
         @keyframes driveTruck {
-            0% { left: 8%; }
-            85% { left: 78%; }
-            100% { left: 78%; }
+            0% {
+                left: 8%;
+            }
+
+            85% {
+                left: 78%;
+            }
+
+            100% {
+                left: 78%;
+            }
         }
+
         @keyframes pulseGlow {
-            from { opacity: 0.7; }
-            to { opacity: 1; }
+            from {
+                opacity: 0.7;
+            }
+
+            to {
+                opacity: 1;
+            }
         }
 
         .telemetry-metrics {
@@ -216,255 +287,299 @@
             padding-top: 14px;
             margin-top: 12px;
         }
-        .t-metric small { display: block; font-size: 0.7rem; color: #94a3b8; }
-        .t-metric strong { font-size: 0.9rem; color: #fff; }
+
+        .t-metric small {
+            display: block;
+            font-size: 0.7rem;
+            color: #94a3b8;
+        }
+
+        .t-metric strong {
+            font-size: 0.9rem;
+            color: #fff;
+        }
     </style>
 </head>
+
 <body>
 
-<nav class="topbar">
-    <h1>MILK VENDOR ORDER & LIVE TELEMETRY PORTAL</h1>
-    <a href="/" class="back-link">← Return to BMC Control Tower</a>
-</nav>
+    <nav class="topbar">
+        <h1>MILK VENDOR ORDER & LIVE TELEMETRY PORTAL</h1>
+        <a href="/" class="back-link">← Return to BMC Control Tower</a>
+    </nav>
 
-<div class="container">
-    <div class="grid">
-        <!-- Order Registration -->
-        <div class="card">
-            <h2>1. Submit Milk Requisition</h2>
-            <form id="vendorForm">
-                <div class="form-group">
-                    <label for="vendorName">Vendor / Dairy Facility Name</label>
-                    <input type="text" id="vendorName" placeholder="e.g. Mother Dairy Hub" required>
-                </div>
+    <div class="container">
+        <div class="grid">
+            <!-- Order Registration -->
+            <div class="card">
+                <h2>1. Submit Milk Requisition</h2>
+                <form id="vendorForm">
+                    <div class="form-group">
+                        <label for="vendorName">Vendor / Dairy Facility Name</label>
+                        <input type="text" id="vendorName" placeholder="e.g. Mother Dairy Hub" required>
+                    </div>
 
-                <div class="form-group">
-                    <label for="vendorLocation">Destination Route Hub</label>
-                    <select id="vendorLocation" required>
-                        <option value="Noida">Noida (8 km from BMC · ~20 mins)</option>
-                        <option value="Delhi">Delhi (25 km from BMC · ~45 mins)</option>
-                        <option value="Gurugram">Gurugram (50 km from BMC · ~90 mins)</option>
+                    <div class="form-group">
+                        <label for="vendorLocation">Destination Route Hub</label>
+                        <select id="vendorLocation" required>
+                            <option value="Noida">Noida (8 km from BMC · ~20 mins)</option>
+                            <option value="Delhi">Delhi (25 km from BMC · ~45 mins)</option>
+                            <option value="Gurugram">Gurugram (50 km from BMC · ~90 mins)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="requiredMilk">Requisition Volume (Liters)</label>
+                        <input type="number" id="requiredMilk" step="0.5" min="1" max="60" placeholder="e.g. 20"
+                            required>
+                    </div>
+
+                    <button type="submit" class="btn">Transmit Order to BMC</button>
+                </form>
+
+                <hr style="margin: 24px 0; border: 0; border-top: 1px solid var(--border);">
+
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label for="vendorSelect">Select Active Vendor to Track Shipment:</label>
+                    <select id="vendorSelect" onchange="loadSelectedVendor(this.value)">
+                        <option value="">-- Choose Registered Vendor --</option>
                     </select>
                 </div>
+            </div>
 
-                <div class="form-group">
-                    <label for="requiredMilk">Requisition Volume (Liters)</label>
-                    <input type="number" id="requiredMilk" step="0.5" min="1" max="60" placeholder="e.g. 20" required>
+            <!-- Live Shipment & Animated Truck Tracker -->
+            <div class="card">
+                <h2>2. Live Cold-Chain Shipment Tracker</h2>
+
+                <div id="noVendorNotice" style="color: var(--text-muted); font-size: 0.9rem;">
+                    Submit an order or choose a vendor from the dropdown to view live GPS route animation.
                 </div>
 
-                <button type="submit" class="btn">Transmit Order to BMC</button>
-            </form>
-
-            <hr style="margin: 24px 0; border: 0; border-top: 1px solid var(--border);">
-
-            <div class="form-group" style="margin-bottom: 0;">
-                <label for="vendorSelect">Select Active Vendor to Track Shipment:</label>
-                <select id="vendorSelect" onchange="loadSelectedVendor(this.value)">
-                    <option value="">-- Choose Registered Vendor --</option>
-                </select>
-            </div>
-        </div>
-
-        <!-- Live Shipment & Animated Truck Tracker -->
-        <div class="card">
-            <h2>2. Live Cold-Chain Shipment Tracker</h2>
-
-            <div id="noVendorNotice" style="color: var(--text-muted); font-size: 0.9rem;">
-                Submit an order or choose a vendor from the dropdown to view live GPS route animation.
-            </div>
-
-            <div id="vendorLiveCard" style="display: none;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                    <div>
-                        <div style="font-size: 1.1rem; font-weight: 700;" id="displayVendorName">--</div>
-                        <div style="font-size: 0.82rem; color: var(--text-muted);">Requested: <span id="displayDemand">0</span>L</div>
+                <div id="vendorLiveCard" style="display: none;">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <div>
+                            <div style="font-size: 1.1rem; font-weight: 700;" id="displayVendorName">--</div>
+                            <div style="font-size: 0.82rem; color: var(--text-muted);">Requested: <span
+                                    id="displayDemand">0</span>L</div>
+                        </div>
+                        <span id="statusBadge" class="badge status-pending">PENDING</span>
                     </div>
-                    <span id="statusBadge" class="badge status-pending">PENDING</span>
-                </div>
 
-                <!-- SHOWN WHEN ACCEPTED: LIVE ANIMATED TRUCK ROUTE -->
-                <div id="acceptedBox" style="display: none;">
-                    <div class="route-map-card">
-                        <div class="route-header">
-                            <span>🟢 LIVE COLD-CHAIN GPS TRACKING</span>
-                            <span>TEMP: 3.8°C (CHILLED)</span>
-                        </div>
-
-                        <div class="route-nodes">
-                            <div class="highway-track">
-                                <div class="highway-progress"></div>
+                    <!-- SHOWN WHEN ACCEPTED: LIVE ANIMATED TRUCK ROUTE -->
+                    <div id="acceptedBox" style="display: none;">
+                        <div class="route-map-card">
+                            <div class="route-header">
+                                <span>🟢 LIVE COLD-CHAIN GPS TRACKING</span>
+                                <span>TEMP: 3.8°C (CHILLED)</span>
                             </div>
 
-                            <!-- Animated Reefer Truck -->
-                            <div class="moving-truck">
-                                <div class="truck-icon">🚚</div>
-                                <div class="truck-tag" id="animTruckLabel">Reefer-Unit-01</div>
+                            <div class="route-nodes">
+                                <div class="highway-track">
+                                    <div class="highway-progress"></div>
+                                </div>
+
+                                <!-- Animated Reefer Truck -->
+                                <div class="moving-truck">
+                                    <div class="truck-icon">🚚</div>
+                                    <div class="truck-tag" id="animTruckLabel">Reefer-Unit-01</div>
+                                </div>
+
+                                <!-- Source Node -->
+                                <div class="node-point">
+                                    <div class="node-circle"></div>
+                                    <div class="node-label">Noida BMC Hub</div>
+                                </div>
+
+                                <!-- Destination Node -->
+                                <div class="node-point">
+                                    <div class="node-circle dest"></div>
+                                    <div class="node-label" id="animDestLabel">Destination</div>
+                                </div>
                             </div>
 
-                            <!-- Source Node -->
-                            <div class="node-point">
-                                <div class="node-circle"></div>
-                                <div class="node-label">Noida BMC Hub</div>
-                            </div>
-
-                            <!-- Destination Node -->
-                            <div class="node-point">
-                                <div class="node-circle dest"></div>
-                                <div class="node-label" id="animDestLabel">Destination</div>
-                            </div>
-                        </div>
-
-                        <div class="telemetry-metrics">
-                            <div class="t-metric">
-                                <small>Allocated Volume</small>
-                                <strong id="assignedQty" style="color: #34d399;">0 L</strong>
-                            </div>
-                            <div class="t-metric">
-                                <small>Assigned Fleet Unit</small>
-                                <strong id="displayTruck">--</strong>
-                            </div>
-                            <div class="t-metric">
-                                <small>Est. Arrival (ETA)</small>
-                                <strong id="displayEta">--</strong>
+                            <div class="telemetry-metrics">
+                                <div class="t-metric">
+                                    <small>Allocated Volume</small>
+                                    <strong id="assignedQty" style="color: #34d399;">0 L</strong>
+                                </div>
+                                <div class="t-metric">
+                                    <small>Assigned Fleet Unit</small>
+                                    <strong id="displayTruck">--</strong>
+                                </div>
+                                <div class="t-metric">
+                                    <small>Est. Arrival (ETA)</small>
+                                    <strong id="displayEta">--</strong>
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
 
-                <!-- SHOWN WHEN REJECTED -->
-                <div id="rejectedBox" style="display: none; background: #fef2f2; border-left: 4px solid var(--danger); padding: 14px; border-radius: 6px; margin-top: 16px;">
-                    <strong style="color: #991b1b;">Order Unfulfilled</strong>
-                    <p style="margin: 6px 0 0 0; font-size: 0.85rem; color: #7f1d1d;">
-                        BMC could not fulfill this requisition during the current cycle due to chiller inventory or fleet capacity constraints.
-                    </p>
-                </div>
+                    <!-- SHOWN WHEN REJECTED -->
+                    <!-- SHOWN WHEN REJECTED -->
+                    <div id="rejectedBox"
+                        style="display: none; background: #fef2f2; border-left: 4px solid var(--danger); padding: 16px; border-radius: 6px; margin-top: 16px;">
+                        <strong style="color: #991b1b; display: block; font-size: 0.95rem;">❌ Order Unfulfilled in
+                            Current Cycle</strong>
+                        <p style="margin: 6px 0 14px 0; font-size: 0.85rem; color: #7f1d1d;">
+                            BMC could not fulfill this requisition during the current cycle due to chiller inventory or
+                            fleet capacity constraints.
+                        </p>
+                        <button onclick="reapplyOrder()"
+                            style="background: #dc2626; color: #fff; border: none; padding: 9px 16px; border-radius: 6px; font-weight: 600; font-size: 0.84rem; cursor: pointer; width: 100%;">
+                            🔄 Reapply Order for Next Cycle
+                        </button>
+                    </div>
 
-                <!-- SHOWN WHILE PENDING -->
-                <div id="pendingBox" style="margin-top: 20px; padding: 16px; background: #f8fafc; border-radius: 8px; color: var(--text-muted); font-size: 0.88rem;">
-                    ⏳ Order is queued at the Noida BMC Control Tower. Waiting for FEFO truck assignment...
+                    <!-- SHOWN WHILE PENDING -->
+                    <div id="pendingBox"
+                        style="margin-top: 20px; padding: 16px; background: #f8fafc; border-radius: 8px; color: var(--text-muted); font-size: 0.88rem;">
+                        ⏳ Order is queued at the Noida BMC Control Tower. Waiting for FEFO truck assignment...
+                    </div>
                 </div>
             </div>
         </div>
     </div>
-</div>
 
-<script>
-    let currentVendorId = localStorage.getItem("vendor_id") || null;
-    let pollInterval = null;
+    <script>
+        let currentVendorId = localStorage.getItem("vendor_id") || null;
+        let pollInterval = null;
 
-    window.onload = async () => {
-        await refreshVendorList();
-        if (currentVendorId) {
-            document.getElementById("vendorSelect").value = currentVendorId;
-            loadSelectedVendor(currentVendorId);
-        }
-    };
-
-    async function refreshVendorList() {
-        try {
-            const res = await fetch("/api/vendors");
-            const vendors = await res.json();
-            const select = document.getElementById("vendorSelect");
-            select.innerHTML = '<option value="">-- Choose Registered Vendor --</option>';
-            
-            vendors.forEach(v => {
-                const opt = document.createElement("option");
-                opt.value = v.id;
-                opt.textContent = `${v.name} (${v.location}) — ${v.required_milk}L [${v.status.toUpperCase()}]`;
-                select.appendChild(opt);
-            });
-        } catch (err) {
-            console.error("Failed to load vendors:", err);
-        }
-    }
-
-    document.getElementById("vendorForm").addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const payload = {
-            name: document.getElementById("vendorName").value,
-            location: document.getElementById("vendorLocation").value,
-            required_milk: parseFloat(document.getElementById("requiredMilk").value),
-            rating: 4.5
+        window.onload = async () => {
+            await refreshVendorList();
+            if (currentVendorId) {
+                document.getElementById("vendorSelect").value = currentVendorId;
+                loadSelectedVendor(currentVendorId);
+            }
         };
 
-        const res = await fetch("/api/vendors/register", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
+        // In vendor.html <script>, update refreshVendorList() fetch URL:
+        async function refreshVendorList() {
+            try {
+                const res = await fetch("/api/vendors?include_cleared=true");
+                const vendors = await res.json();
+                const select = document.getElementById("vendorSelect");
+                select.innerHTML = '<option value="">-- Choose Registered Vendor --</option>';
+
+                vendors.forEach(v => {
+                    const opt = document.createElement("option");
+                    opt.value = v.id;
+                    opt.textContent = `${v.name} (${v.location}) — ${v.required_milk}L [${v.status.toUpperCase()}]`;
+                    select.appendChild(opt);
+                });
+            } catch (err) {
+                console.error("Failed to load vendors:", err);
+            }
+        }
+
+        // Add this function inside the <script> tag of vendor.html:
+        async function reapplyOrder() {
+            if (!currentVendorId) return;
+            try {
+                const res = await fetch(`/api/vendors/${currentVendorId}/reapply`, {
+                    method: "POST"
+                });
+                if (res.ok) {
+                    await refreshVendorList();
+                    document.getElementById("vendorSelect").value = currentVendorId;
+                    await fetchVendorDetails();
+                    alert("✅ Your order has been re-queued as PENDING for the next BMC cycle!");
+                } else {
+                    alert("❌ Failed to reapply order.");
+                }
+            } catch (err) {
+                console.error("Reapply error:", err);
+            }
+        }
+
+        document.getElementById("vendorForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const payload = {
+                name: document.getElementById("vendorName").value,
+                location: document.getElementById("vendorLocation").value,
+                required_milk: parseFloat(document.getElementById("requiredMilk").value),
+                rating: 4.5
+            };
+
+            const res = await fetch("/api/vendors/register", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                currentVendorId = data.vendor_id;
+                localStorage.setItem("vendor_id", currentVendorId);
+                await refreshVendorList();
+                document.getElementById("vendorSelect").value = currentVendorId;
+                loadSelectedVendor(currentVendorId);
+                document.getElementById("vendorForm").reset();
+            }
         });
 
-        if (res.ok) {
-            const data = await res.json();
-            currentVendorId = data.vendor_id;
-            localStorage.setItem("vendor_id", currentVendorId);
-            await refreshVendorList();
-            document.getElementById("vendorSelect").value = currentVendorId;
-            loadSelectedVendor(currentVendorId);
-            document.getElementById("vendorForm").reset();
-        }
-    });
-
-    function loadSelectedVendor(id) {
-        if (!id) {
-            document.getElementById("noVendorNotice").style.display = "block";
-            document.getElementById("vendorLiveCard").style.display = "none";
-            if (pollInterval) clearInterval(pollInterval);
-            return;
-        }
-
-        currentVendorId = id;
-        localStorage.setItem("vendor_id", id);
-        document.getElementById("noVendorNotice").style.display = "none";
-        document.getElementById("vendorLiveCard").style.display = "block";
-
-        fetchVendorDetails();
-        if (pollInterval) clearInterval(pollInterval);
-        pollInterval = setInterval(fetchVendorDetails, 3000);
-    }
-
-    async function fetchVendorDetails() {
-        if (!currentVendorId) return;
-
-        try {
-            const res = await fetch(`/api/vendors/${currentVendorId}`);
-            if (!res.ok) return;
-            const vendor = await res.json();
-            const status = (vendor.status || "pending").toLowerCase();
-
-            document.getElementById("displayVendorName").textContent = vendor.name;
-            document.getElementById("displayDemand").textContent = vendor.required_milk;
-
-            const badge = document.getElementById("statusBadge");
-            badge.textContent = status.toUpperCase();
-            badge.className = `badge status-${status}`;
-
-            const acceptedBox = document.getElementById("acceptedBox");
-            const rejectedBox = document.getElementById("rejectedBox");
-            const pendingBox = document.getElementById("pendingBox");
-
-            if (status === "accepted") {
-                acceptedBox.style.display = "block";
-                rejectedBox.style.display = "none";
-                pendingBox.style.display = "none";
-                document.getElementById("assignedQty").textContent = `${vendor.assigned_quantity} L`;
-                document.getElementById("displayTruck").textContent = vendor.truck_name || "Reefer-Unit-01";
-                document.getElementById("animTruckLabel").textContent = vendor.truck_name || "Reefer-Unit-01";
-                document.getElementById("animDestLabel").textContent = `${vendor.location} (${vendor.distance_km} km)`;
-                document.getElementById("displayEta").textContent = vendor.eta || "20 mins";
-            } else if (status === "rejected") {
-                acceptedBox.style.display = "none";
-                rejectedBox.style.display = "block";
-                pendingBox.style.display = "none";
-            } else {
-                acceptedBox.style.display = "none";
-                rejectedBox.style.display = "none";
-                pendingBox.style.display = "block";
+        function loadSelectedVendor(id) {
+            if (!id) {
+                document.getElementById("noVendorNotice").style.display = "block";
+                document.getElementById("vendorLiveCard").style.display = "none";
+                if (pollInterval) clearInterval(pollInterval);
+                return;
             }
-        } catch (err) {
-            console.error("Polling error:", err);
+
+            currentVendorId = id;
+            localStorage.setItem("vendor_id", id);
+            document.getElementById("noVendorNotice").style.display = "none";
+            document.getElementById("vendorLiveCard").style.display = "block";
+
+            fetchVendorDetails();
+            if (pollInterval) clearInterval(pollInterval);
+            pollInterval = setInterval(fetchVendorDetails, 3000);
         }
-    }
-</script>
+
+        async function fetchVendorDetails() {
+            if (!currentVendorId) return;
+
+            try {
+                const res = await fetch(`/api/vendors/${currentVendorId}`);
+                if (!res.ok) return;
+                const vendor = await res.json();
+                const status = (vendor.status || "pending").toLowerCase();
+
+                document.getElementById("displayVendorName").textContent = vendor.name;
+                document.getElementById("displayDemand").textContent = vendor.required_milk;
+
+                const badge = document.getElementById("statusBadge");
+                badge.textContent = status.toUpperCase();
+                badge.className = `badge status-${status}`;
+
+                const acceptedBox = document.getElementById("acceptedBox");
+                const rejectedBox = document.getElementById("rejectedBox");
+                const pendingBox = document.getElementById("pendingBox");
+
+                if (status === "accepted") {
+                    acceptedBox.style.display = "block";
+                    rejectedBox.style.display = "none";
+                    pendingBox.style.display = "none";
+                    document.getElementById("assignedQty").textContent = `${vendor.assigned_quantity} L`;
+                    document.getElementById("displayTruck").textContent = vendor.truck_name || "Reefer-Unit-01";
+                    document.getElementById("animTruckLabel").textContent = vendor.truck_name || "Reefer-Unit-01";
+                    document.getElementById("animDestLabel").textContent = `${vendor.location} (${vendor.distance_km} km)`;
+                    document.getElementById("displayEta").textContent = vendor.eta || "20 mins";
+                } else if (status === "rejected") {
+                    acceptedBox.style.display = "none";
+                    rejectedBox.style.display = "block";
+                    pendingBox.style.display = "none";
+                } else {
+                    acceptedBox.style.display = "none";
+                    rejectedBox.style.display = "none";
+                    pendingBox.style.display = "block";
+                }
+            } catch (err) {
+                console.error("Polling error:", err);
+            }
+        }
+    </script>
 
 </body>
+
 </html>

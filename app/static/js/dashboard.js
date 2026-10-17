@@ -2,6 +2,8 @@ let vendors = [];
 let trucks = [];
 let inventory = {};
 let cachedWeather = "28.5°C";
+let allVendorsForKPI = [];
+
 
 async function getWeather(locationName = "Noida") {
     try {
@@ -15,6 +17,9 @@ async function getWeather(locationName = "Noida") {
         return "28°C · MODERATE RISK";
     }
 }
+
+// Replace refreshData() and updateKPIs() in app/static/js/dashboard.js, and add clearAcceptedOrders():
+
 
 async function refreshData() {
     try {
@@ -30,9 +35,14 @@ async function refreshData() {
         trucks = await truckRes.json();
         renderTrucks();
 
+        // Active queue vendors (excludes cleared ones)
         const venRes = await fetch('/api/vendors');
         vendors = await venRes.json();
         renderVendors();
+
+        // All vendors including cleared ones so KPIs don't drop to 0 when queue is cleared
+        const allVenRes = await fetch('/api/vendors?include_cleared=true');
+        allVendorsForKPI = await allVenRes.json();
         updateKPIs();
 
         document.getElementById('lastUpdate').textContent = `Last sync: ${new Date().toLocaleTimeString()}`;
@@ -40,6 +50,30 @@ async function refreshData() {
         console.error('Refresh failed:', e);
     }
 }
+
+function updateKPIs() {
+    const totalDispatched = allVendorsForKPI
+        .filter(v => (v.status || '').toLowerCase() === 'accepted')
+        .reduce((sum, v) => sum + (parseFloat(v.assigned_quantity) || 0), 0);
+
+    const kpiDisp = document.getElementById('kpiDispatched');
+    const kpiRev = document.getElementById('kpiRevenue');
+    if (kpiDisp) kpiDisp.textContent = `${totalDispatched.toFixed(1)} L`;
+    if (kpiRev) kpiRev.textContent = `₹${(totalDispatched * 55).toLocaleString('en-IN')}`;
+}
+
+async function clearAcceptedOrders() {
+    try {
+        const res = await fetch('/api/vendors/clear-accepted', { method: 'POST' });
+        if (res.ok) {
+            await refreshData();
+        }
+    } catch (err) {
+        console.error('Failed to clear accepted orders:', err);
+    }
+}
+
+
 
 function renderTrucks() {
     const container = document.getElementById('trucksList');
@@ -76,16 +110,6 @@ async function returnTruck(truckId) {
     await refreshData();
 }
 
-function updateKPIs() {
-    const totalDispatched = vendors
-        .filter(v => (v.status || '').toLowerCase() === 'accepted')
-        .reduce((sum, v) => sum + (parseFloat(v.assigned_quantity) || 0), 0);
-
-    const kpiDisp = document.getElementById('kpiDispatched');
-    const kpiRev = document.getElementById('kpiRevenue');
-    if (kpiDisp) kpiDisp.textContent = `${totalDispatched.toFixed(1)} L`;
-    if (kpiRev) kpiRev.textContent = `₹${(totalDispatched * 55).toLocaleString('en-IN')}`;
-}
 
 function renderVendors() {
     const container = document.getElementById('vendorsList');
@@ -244,6 +268,7 @@ window.askAI = askAI;
 window.triggerDisruption = triggerDisruption;
 window.resetInventory = resetInventory;
 window.returnTruck = returnTruck;
+window.clearAcceptedOrders = clearAcceptedOrders;
 
 getWeather("Noida");
 refreshData();

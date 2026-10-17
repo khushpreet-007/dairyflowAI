@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <title>BMC Control Tower — Cold-Chain & Fleet Operations</title>
     <meta charset="UTF-8">
@@ -20,7 +21,10 @@
             --danger: #ef4444;
         }
 
-        * { box-sizing: border-box; }
+        * {
+            box-sizing: border-box;
+        }
+
         body {
             font-family: 'Inter', -apple-system, sans-serif;
             background-color: var(--bg-body);
@@ -39,11 +43,13 @@
             align-items: center;
             border-bottom: 1px solid #1e293b;
         }
+
         .topbar-title {
             display: flex;
             align-items: center;
             gap: 12px;
         }
+
         .status-dot {
             width: 10px;
             height: 10px;
@@ -51,22 +57,26 @@
             border-radius: 50%;
             box-shadow: 0 0 8px var(--success);
         }
+
         .topbar h1 {
             font-size: 1.15rem;
             font-weight: 700;
             margin: 0;
             letter-spacing: -0.01em;
         }
+
         .topbar-sub {
             font-size: 0.78rem;
             color: #94a3b8;
             margin-top: 2px;
         }
+
         .topbar-right {
             display: flex;
             align-items: center;
             gap: 16px;
         }
+
         .portal-link {
             background: #1e293b;
             color: #38bdf8;
@@ -78,7 +88,10 @@
             border: 1px solid #334155;
             transition: all 0.2s;
         }
-        .portal-link:hover { background: #334155; }
+
+        .portal-link:hover {
+            background: #334155;
+        }
 
         .main-container {
             max-width: 1280px;
@@ -93,14 +106,21 @@
             gap: 16px;
             margin-bottom: 24px;
         }
-        @media (max-width: 900px) { .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+
+        @media (max-width: 900px) {
+            .kpi-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
         .kpi-card {
             background: var(--bg-card);
             border: 1px solid var(--border);
             border-radius: 10px;
             padding: 16px 20px;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
         }
+
         .kpi-label {
             font-size: 0.75rem;
             font-weight: 600;
@@ -108,13 +128,18 @@
             letter-spacing: 0.04em;
             color: var(--text-muted);
         }
+
         .kpi-value {
             font-size: 1.5rem;
             font-weight: 700;
             margin: 6px 0 2px 0;
             color: var(--text-dark);
         }
-        .kpi-sub { font-size: 0.78rem; color: var(--text-muted); }
+
+        .kpi-sub {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+        }
 
         /* Two Column Layout */
         .workspace-grid {
@@ -122,7 +147,12 @@
             grid-template-columns: 1.1fr 1.4fr;
             gap: 24px;
         }
-        @media (max-width: 1024px) { .workspace-grid { grid-template-columns: 1fr; } }
+
+        @media (max-width: 1024px) {
+            .workspace-grid {
+                grid-template-columns: 1fr;
+            }
+        }
 
         .panel {
             background: var(--bg-card);
@@ -130,8 +160,9 @@
             border-radius: 10px;
             padding: 20px;
             margin-bottom: 24px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
         }
+
         .panel-header {
             display: flex;
             justify-content: space-between;
@@ -140,6 +171,7 @@
             padding-bottom: 12px;
             border-bottom: 1px solid var(--border);
         }
+
         .panel-title {
             font-size: 0.95rem;
             font-weight: 700;
@@ -155,17 +187,37 @@
             grid-template-columns: repeat(3, 1fr);
             gap: 12px;
         }
+
         .silo-box {
             border: 1px solid var(--border);
             border-radius: 8px;
             padding: 14px;
             background: #f8fafc;
         }
-        .silo-box.urgent { border-top: 3px solid var(--danger); }
-        .silo-box.warning { border-top: 3px solid var(--warning); }
-        .silo-box.normal { border-top: 3px solid var(--success); }
-        .silo-qty { font-size: 1.4rem; font-weight: 700; margin: 4px 0; }
-        .silo-tag { font-size: 0.75rem; color: var(--text-muted); font-weight: 500; }
+
+        .silo-box.urgent {
+            border-top: 3px solid var(--danger);
+        }
+
+        .silo-box.warning {
+            border-top: 3px solid var(--warning);
+        }
+
+        .silo-box.normal {
+            border-top: 3px solid var(--success);
+        }
+
+        .silo-qty {
+            font-size: 1.4rem;
+            font-weight: 700;
+            margin: 4px 0;
+        }
+
+        .silo-tag {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
 
         /* Fleet Cards */
         .truck-item {
@@ -175,6 +227,7 @@
             margin-bottom: 12px;
             background: #f8fafc;
         }
+
         .truck-bar-bg {
             background: #e2e8f0;
             height: 6px;
@@ -182,6 +235,7 @@
             margin: 8px 0;
             overflow: hidden;
         }
+
         .truck-bar-fill {
             background: var(--primary);
             height: 100%;
@@ -197,8 +251,16 @@
             background: #fff;
             transition: border-color 0.2s;
         }
-        .vendor-item:hover { border-color: #cbd5e1; }
-        .vendor-actions { margin-top: 10px; display: flex; gap: 8px; }
+
+        .vendor-item:hover {
+            border-color: #cbd5e1;
+        }
+
+        .vendor-actions {
+            margin-top: 10px;
+            display: flex;
+            gap: 8px;
+        }
 
         /* Buttons & Badges */
         .btn {
@@ -210,13 +272,43 @@
             cursor: pointer;
             transition: opacity 0.15s;
         }
-        .btn:hover { opacity: 0.9; }
-        .btn-primary { background: var(--primary); color: #fff; }
-        .btn-ai { background: linear-gradient(135deg, #1e40af, #6d28d9); color: #fff; padding: 9px 16px; }
-        .btn-accept { background: #059669; color: #fff; }
-        .btn-reject { background: #dc2626; color: #fff; }
-        .btn-outline { background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; }
-        .btn-danger-outline { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+
+        .btn:hover {
+            opacity: 0.9;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: #fff;
+        }
+
+        .btn-ai {
+            background: linear-gradient(135deg, #1e40af, #6d28d9);
+            color: #fff;
+            padding: 9px 16px;
+        }
+
+        .btn-accept {
+            background: #059669;
+            color: #fff;
+        }
+
+        .btn-reject {
+            background: #dc2626;
+            color: #fff;
+        }
+
+        .btn-outline {
+            background: #f1f5f9;
+            color: #334155;
+            border: 1px solid #cbd5e1;
+        }
+
+        .btn-danger-outline {
+            background: #fef2f2;
+            color: #b91c1c;
+            border: 1px solid #fecaca;
+        }
 
         .badge {
             display: inline-block;
@@ -227,12 +319,34 @@
             letter-spacing: 0.03em;
             text-transform: uppercase;
         }
-        .badge.pending { background: #fef3c7; color: #b45309; }
-        .badge.accepted, .badge.available { background: #d1fae5; color: #065f46; }
-        .badge.rejected { background: #fee2e2; color: #991b1b; }
-        .badge.in_transit { background: #dbeafe; color: #1e40af; }
 
-        .chat-row { display: flex; gap: 8px; margin-top: 12px; }
+        .badge.pending {
+            background: #fef3c7;
+            color: #b45309;
+        }
+
+        .badge.accepted,
+        .badge.available {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .badge.rejected {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .badge.in_transit {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .chat-row {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
         .chat-row input {
             flex: 1;
             padding: 10px 12px;
@@ -242,6 +356,7 @@
         }
     </style>
 </head>
+
 <body>
 
     <!-- TOP INDUSTRIAL HEADER -->
@@ -279,7 +394,8 @@
             </div>
             <div class="kpi-card">
                 <div class="kpi-label">Hub Ambient Telemetry</div>
-                <div class="kpi-value" id="liveWeatherDisplay" style="font-size: 1.05rem; margin-top: 10px;">Loading...</div>
+                <div class="kpi-value" id="liveWeatherDisplay" style="font-size: 1.05rem; margin-top: 10px;">Loading...
+                </div>
                 <div class="kpi-sub">Noida Sector-62 Sensor Feed</div>
             </div>
         </div>
@@ -292,7 +408,8 @@
                     <div class="panel-header">
                         <h2 class="panel-title">Chiller Batch Silos (FEFO Priority)</h2>
                         <div style="display: flex; gap: 6px;">
-                            <button class="btn btn-danger-outline" onclick="triggerDisruption()">Simulate Cooling Fault (-7L)</button>
+                            <button class="btn btn-danger-outline" onclick="triggerDisruption()">Simulate Cooling Fault
+                                (-7L)</button>
                             <button class="btn btn-outline" onclick="resetInventory()">Reset System</button>
                         </div>
                     </div>
@@ -319,7 +436,8 @@
                 <div class="panel">
                     <div class="panel-header">
                         <h2 class="panel-title">Universal Reefer Fleet (30L Cap / Unit)</h2>
-                        <span style="font-size: 0.75rem; color: var(--text-muted);">Any unit serves Noida, Delhi, or Gurugram</span>
+                        <span style="font-size: 0.75rem; color: var(--text-muted);">Any unit serves Noida, Delhi, or
+                            Gurugram</span>
                     </div>
                     <div id="trucksList">Loading fleet units...</div>
                 </div>
@@ -329,9 +447,11 @@
                     <div class="panel-header">
                         <h2 class="panel-title">Gemini Operations Copilot</h2>
                     </div>
-                    <div id="aiResponse" style="font-size: 0.88rem; color: #334155;">Ask Gemini to analyze route bottlenecks or optimal vendor allocation.</div>
+                    <div id="aiResponse" style="font-size: 0.88rem; color: #334155;">Ask Gemini to analyze route
+                        bottlenecks or optimal vendor allocation.</div>
                     <div class="chat-row">
-                        <input type="text" id="aiQuery" placeholder="e.g., Which pending vendor should we prioritize first?">
+                        <input type="text" id="aiQuery"
+                            placeholder="e.g., Which pending vendor should we prioritize first?">
                         <button class="btn btn-primary" onclick="askAI()">Analyze</button>
                     </div>
                 </div>
@@ -340,21 +460,27 @@
             <!-- RIGHT COLUMN: VENDOR DISPATCH QUEUE -->
             <div>
                 <div class="panel">
-                    <div class="panel-header">
+                    <div class="panel-header" style="flex-wrap: wrap; gap: 10px;">
                         <h2 class="panel-title">Incoming Vendor Dispatch Queue</h2>
-                        <div style="display: flex; gap: 8px;">
+                        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
                             <button class="btn btn-outline" onclick="refreshData()">Sync</button>
-                            <button class="btn btn-ai" onclick="handleOrdersByAI()">⚡ Auto-Allocate All Pending (Gemini AI)</button>
+                            <button class="btn btn-outline" onclick="clearAcceptedOrders()"
+                                title="Remove dispatched orders from queue">🧹 Clear Accepted</button>
+                            <button class="btn btn-ai" onclick="handleOrdersByAI()">⚡ Auto-Allocate All Pending (Gemini
+                                AI)</button>
                         </div>
                     </div>
 
-                    <div id="aiAutoSummary" style="display: none; background: #f8fafc; border-left: 3px solid var(--primary); padding: 14px; border-radius: 6px; margin-bottom: 16px; font-size: 0.86rem;"></div>
+                    <div id="aiAutoSummary"
+                        style="display: none; background: #f8fafc; border-left: 3px solid var(--primary); padding: 14px; border-radius: 6px; margin-bottom: 16px; font-size: 0.86rem;">
+                    </div>
                     <div id="vendorsList">Loading vendor orders...</div>
                 </div>
             </div>
         </div>
     </div>
 
-    <script src="/static/js/dashboard.js?v=6"></script>
+    <script src="/static/js/dashboard.js?v=7"></script>
 </body>
+
 </html>

@@ -271,26 +271,59 @@ def reset_demo(db: Session = Depends(get_db)):
     db.commit()
     return {"success": True}
 
+# --- UPDATE /api/vendors IN main.py ---
 @app.get("/api/vendors")
-def get_vendors(db: Session = Depends(get_db)):
+def get_vendors(include_cleared: bool = False, db: Session = Depends(get_db)):
     vendors = db.query(Vendor).all()
-    return [
-        {
+    result = []
+    for v in vendors:
+        # Hide cleared/archived orders from BMC queue unless requested
+        if not include_cleared and v.status == "cleared":
+            continue
+        result.append({
             "id": v.id,
             "name": v.name,
             "location": v.location,
             "distance_km": ROUTE_DATA.get(v.location, ROUTE_DATA["Noida"])["distance_km"],
             "required_milk": v.required_milk,
             "rating": v.rating,
-            "status": v.status,
+            "status": "accepted" if v.status == "cleared" else v.status,
+            "raw_status": v.status,
             "assigned_quantity": v.assigned_quantity,
             "truck_name": v.truck_name,
             "eta": v.eta,
             "notification_time": str(v.notification_time) if v.notification_time else None
-        }
-        for v in vendors
-    ]
+        })
+    return result
 
+# --- NEW ENDPOINT 1: CLEAR ACCEPTED ORDERS FROM BMC QUEUE ---
+@app.post("/api/vendors/clear-accepted")
+def clear_accepted_orders(db: Session = Depends(get_db)):
+    """Hides accepted orders from the BMC queue while preserving their delivery view on the Vendor Portal."""
+    accepted_vendors = db.query(Vendor).filter(Vendor.status == "accepted").all()
+    count = len(accepted_vendors)
+    for v in accepted_vendors:
+        v.status = "cleared"
+    db.commit()
+    return {"success": True, "cleared_count": count}
+
+# --- NEW ENDPOINT 2: VENDOR REAPPLIES REJECTED ORDER FOR NEXT CYCLE ---
+@app.post("/api/vendors/{vendor_id}/reapply")
+def reapply_rejected_order(vendor_id: int, db: Session = Depends(get_db)):
+    """Resets a rejected vendor order back to 'pending' so it re-enters the BMC queue for the next cycle."""
+    v = db.query(Vendor).filter(Vendor.id == vendor_id).first()
+    if not v:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+
+    v.status = "pending"
+    v.assigned_quantity = 0.0
+    v.truck_name = None
+    v.eta = None
+    v.notification_time = datetime.utcnow()
+    db.commit()
+    db.refresh(v)
+    return {"success": True, "status": v.status}
+    
 @app.get("/api/vendors/{vendor_id}")
 def get_single_vendor(vendor_id: int, db: Session = Depends(get_db)):
     v = db.query(Vendor).filter(Vendor.id == vendor_id).first()
