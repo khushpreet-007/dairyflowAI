@@ -114,43 +114,74 @@ def ai_recommend(query: ManagerQuery, db: Session = Depends(get_db)):
     inventory = query.inventory
     vendors = get_vendors(db)
 
+    # 1. Fallback if no vendors are registered yet
+    if not vendors:
+        return {
+            "vendor": "No Vendors Available",
+            "reasoning": "Please register at least one vendor first in the vendor dashboard.",
+            "quantity": 0,
+            "delivery_time": "N/A"
+        }
+
     prompt = f"""
+    You are a milk supply chain optimization assistant.
     INVENTORY: 30L(0d), {inventory.get('milk_1day', 0)}L(1d), {inventory.get('milk_2days', 0)}L(2d)
     OFFICE: Noida | WEATHER: {query.weather}
 
-    VENDORS:
+    REGISTERED VENDORS:
     {json.dumps(vendors, indent=2)}
 
-    MANAGER ASKED: "{query.query}"
+    MANAGER QUERY: "{query.query}"
 
-    ANALYZE step-by-step:
-    1. Match quantity needs vs spoilage risk
-    2. Consider distance + weather impact
-    3. Vendor rating + history
-    4. Recommend EXACTLY 1 vendor + delivery time
+    Analyze step-by-step:
+    1. Match quantity needs vs spoilage risk.
+    2. Consider distance and weather impact.
+    3. Vendor rating and fulfillment history.
+    4. Choose exactly 1 vendor.
 
-    Respond with a valid JSON object matching this schema:
+    You MUST respond ONLY with a raw JSON object matching these exact keys:
     {{
-      "reasoning": "your explanation",
-      "vendor": "name",
-      "quantity": 0.0,
-      "delivery_time": "HH:MM"
+      "vendor": "exact vendor name from list",
+      "reasoning": "concise explanation for selection",
+      "quantity": 25.0,
+      "delivery_time": "14:30"
     }}
     """
 
     try:
+        # Use gemini-1.5-flash or gemini-2.0-flash
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
+            model="gemini-1.5-flash",
             contents=prompt,
-            config={
-                "response_mime_type": "application/json",
-                "temperature": 0.3,
-            },
         )
-        return json.loads(response.text)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Gemini AI processing error: {str(e)}")
 
+        raw_text = response.text.strip()
+        print("--- GEMINI RAW OUTPUT ---", raw_text)
+
+        # Clean markdown code blocks (```json ... ```) if present
+        cleaned_text = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw_text, flags=re.MULTILINE).strip()
+        
+        result = json.loads(cleaned_text)
+
+        # Ensure required keys exist with fallbacks
+        return {
+            "vendor": result.get("vendor", vendors[0]["name"]),
+            "reasoning": result.get("reasoning", "Recommended based on demand and rating."),
+            "quantity": result.get("quantity", vendors[0]["required_milk"]),
+            "delivery_time": result.get("delivery_time", "11:00 AM"),
+        }
+
+    except Exception as e:
+        print(f"ERROR calling Gemini: {e}")
+        # Fallback to smart heuristic if API fails during live hackathon demo
+        top_vendor = sorted(vendors, key=lambda v: v.get("rating", 0), reverse=True)[0]
+        return {
+            "vendor": top_vendor["name"],
+            "reasoning": f"Heuristic fallback: Selected highest rated vendor ({top_vendor['rating']}★). (AI Error: {str(e)[:60]})",
+            "quantity": top_vendor["required_milk"],
+            "delivery_time": "10:30 AM"
+        }
+        
 @app.post("/api/notify/{vendor_id}")
 def send_notification(vendor_id: int, quantity: float, db: Session = Depends(get_db)):
     vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
