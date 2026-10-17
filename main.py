@@ -1,9 +1,12 @@
 import json
 import os
+import sys
+import re
 from datetime import datetime
 from pathlib import Path
-from dotenv import load_dotenv
+from typing import Optional
 
+from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -11,18 +14,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-# Correct imports matching your 'app/' folder structure
+# Import Vertex AI Gemini client
 from app.client.vertex_client import client
-from typing import Optional
-from pydantic import BaseModel
-import sys
-import re
 
-class NotifyRequest(BaseModel):
-    quantity: float = 30.0
-
-# If db.py is inside app/, use: from app.db import ...
-# If db.py is in the root, change this to: from db import ...
+# Import database session and models
 try:
     from app.db import get_db, Vendor, Inventory
 except ImportError:
@@ -30,15 +25,15 @@ except ImportError:
 
 load_dotenv()
 
-# --- 1. DEFINE PATHS FIRST ---
+# --- 1. DIRECTORY PATHS ---
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "app" / "static"
 TEMPLATE_DIR = BASE_DIR / "app" / "templates"
 
-# --- 2. CREATE THE FASTAPI APP INSTANCE ---
+# --- 2. FASTAPI APP INITIALIZATION ---
 app = FastAPI()
 
-# --- 3. ADD MIDDLEWARE ---
+# --- 3. MIDDLEWARE ---
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -47,10 +42,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- 4. MOUNT STATIC FILES (Now 'app' is defined!) ---
+# --- 4. STATIC FILES MOUNT ---
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
-# --- 5. MODELS ---
+# --- 5. PYDANTIC MODELS ---
 class VendorRequest(BaseModel):
     name: str
     location: str
@@ -62,13 +57,27 @@ class ManagerQuery(BaseModel):
     inventory: dict
     weather: str = ""
 
+class NotifyRequest(BaseModel):
+    quantity: float = 30.0
+
+class StatusUpdate(BaseModel):
+    status: str
+
 # --- 6. ROUTES ---
+
 @app.get("/")
 async def home():
     index_file = TEMPLATE_DIR / "index.html"
     if not index_file.exists():
         raise HTTPException(status_code=404, detail="index.html not found")
     return FileResponse(index_file)
+
+@app.get("/vendor")
+async def vendor_page():
+    vendor_file = TEMPLATE_DIR / "vendor.html"
+    if not vendor_file.exists():
+        raise HTTPException(status_code=404, detail="vendor.html not found")
+    return FileResponse(vendor_file)
 
 @app.get("/api/inventory")
 def get_inventory(db: Session = Depends(get_db)):
@@ -103,6 +112,22 @@ def get_vendors(db: Session = Depends(get_db)):
         for v in vendors
     ]
 
+@app.get("/api/vendors/{vendor_id}")
+def get_single_vendor(vendor_id: int, db: Session = Depends(get_db)):
+    v = db.query(Vendor).filter(Vendor.id == vendor_id).first()
+    if not v:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+    return {
+        "id": v.id,
+        "name": v.name,
+        "location": v.location,
+        "required_milk": v.required_milk,
+        "rating": v.rating,
+        "status": v.status,
+        "assigned_quantity": v.assigned_quantity,
+        "notification_time": str(v.notification_time) if v.notification_time else None
+    }
+
 @app.post("/api/vendors/register")
 def register_vendor(vendor: VendorRequest, db: Session = Depends(get_db)):
     new_vendor = Vendor(
@@ -119,14 +144,13 @@ def register_vendor(vendor: VendorRequest, db: Session = Depends(get_db)):
 
 @app.post("/api/ai/recommend")
 def ai_recommend(query: ManagerQuery, db: Session = Depends(get_db)):
-    print(f"\n[AI] Received recommendation query: '{query.query}'", flush=True)
-    
+    print(f"\n[AI] Received query: '{query.query}'", flush=True)
+
     inventory = query.inventory
     vendors = get_vendors(db)
-    print(f"[AI] Found {len(vendors)} vendors in DB", flush=True)
+    print(f"[AI] Active vendors in database: {len(vendors)}", flush=True)
 
     if not vendors:
-        print("[AI] No vendors available in database.", flush=True)
         return {
             "vendor": "No Vendors Available",
             "reasoning": "Please register at least one vendor first in the vendor dashboard.",
@@ -160,7 +184,7 @@ def ai_recommend(query: ManagerQuery, db: Session = Depends(get_db)):
     """
 
     try:
-        print("[AI] Calling Gemini model (gemini-1.5-flash)...", flush=True)
+        print("[AI] Requesting Gemini (gemini-1.5-flash)...", flush=True)
         response = client.models.generate_content(
             model="gemini-2.5-flash",
             contents=prompt,
@@ -169,32 +193,30 @@ def ai_recommend(query: ManagerQuery, db: Session = Depends(get_db)):
         raw_text = response.text.strip()
         print(f"[AI] Raw Gemini output:\n{raw_text}", flush=True)
 
-        # Clean markdown wrappers (```json ... ```)
+        # Remove markdown fences like ```json ... ``` if present
         cleaned_text = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw_text, flags=re.MULTILINE).strip()
         result = json.loads(cleaned_text)
 
         output = {
-            "vendor": result.get("vendor", vendors 0 ["name"]),
+            "vendor": result.get("vendor", vendors[0]["name"]),
             "reasoning": result.get("reasoning", "Recommended based on demand and rating."),
-            "quantity": float(result.get("quantity", vendors 0 ["required_milk"])),
+            "quantity": float(result.get("quantity", vendors[0]["required_milk"])),
             "delivery_time": result.get("delivery_time", "11:00 AM"),
         }
-        print(f"[AI] Successfully generated recommendation: {output}", flush=True)
+        print(f"[AI] Recommendation complete: {output}", flush=True)
         return output
 
     except Exception as e:
-        # Flush the full error to stdout so it shows in terminal
         print(f"\n❌ [AI ERROR]: {type(e).__name__}: {str(e)}", file=sys.stderr, flush=True)
-        
-        # Fallback to smart heuristic if API fails during live demo
-        top_vendor = sorted(vendors, key=lambda v: v.get("rating", 0), reverse=True) 0 
+
+        # Fallback to smart heuristic if API fails during demo
+        top_vendor = sorted(vendors, key=lambda v: v.get("rating", 0), reverse=True)[0]
         return {
             "vendor": top_vendor["name"],
             "reasoning": f"Heuristic fallback: Selected highest rated vendor ({top_vendor['rating']}★). (AI Error: {str(e)[:70]})",
             "quantity": top_vendor["required_milk"],
             "delivery_time": "10:30 AM"
         }
-
 
 @app.post("/api/notify/{vendor_id}")
 def send_notification(vendor_id: int, payload: NotifyRequest, db: Session = Depends(get_db)):
@@ -208,44 +230,16 @@ def send_notification(vendor_id: int, payload: NotifyRequest, db: Session = Depe
     db.commit()
     db.refresh(vendor)
 
-    print(f"✅ Updated Vendor {vendor.name} to status: {vendor.status} with {payload.quantity}L")
+    print(f"✅ Notified vendor '{vendor.name}' (ID: {vendor.id}) for {payload.quantity}L", flush=True)
     return {"success": True, "status": vendor.status, "vendor_id": vendor.id}
 
-# 1. Vendor Page Route
-@app.get("/vendor")
-async def vendor_page():
-    vendor_file = TEMPLATE_DIR / "vendor.html"
-    if not vendor_file.exists():
-        raise HTTPException(status_code=404, detail="vendor.html not found")
-    return FileResponse(vendor_file)
-
-# 2. Get Single Vendor Details
-@app.get("/api/vendors/{vendor_id}")
-def get_single_vendor(vendor_id: int, db: Session = Depends(get_db)):
-    v = db.query(Vendor).filter(Vendor.id == vendor_id).first()
-    if not v:
-        raise HTTPException(status_code=404, detail="Vendor not found")
-    return {
-        "id": v.id,
-        "name": v.name,
-        "location": v.location,
-        "required_milk": v.required_milk,
-        "rating": v.rating,
-        "status": v.status,
-        "assigned_quantity": v.assigned_quantity,
-        "notification_time": str(v.notification_time) if v.notification_time else None
-    }
-
-# 3. Model for status change
-class StatusUpdate(BaseModel):
-    status: str
-
-# 4. Vendor Accepts or Rejects Notification
 @app.post("/api/vendors/{vendor_id}/status")
 def update_vendor_status(vendor_id: int, payload: StatusUpdate, db: Session = Depends(get_db)):
     v = db.query(Vendor).filter(Vendor.id == vendor_id).first()
     if not v:
         raise HTTPException(status_code=404, detail="Vendor not found")
+
     v.status = payload.status
     db.commit()
+    print(f"🔄 Vendor '{v.name}' updated status to '{payload.status}'", flush=True)
     return {"success": True, "status": v.status}
