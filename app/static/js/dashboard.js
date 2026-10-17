@@ -30,9 +30,22 @@ function renderVendors() {
     
     container.innerHTML = vendors.map(v => {
         const status = (v.status || 'pending').toLowerCase();
+        
         const assignedInfo = status === 'accepted' 
             ? `<span style="color: #15803d; font-weight: bold;"> | ✅ Allocated: ${v.assigned_quantity}L</span>` 
             : (status === 'rejected' ? `<span style="color: #b91c1c; font-weight: bold;"> | ❌ Order Rejected</span>` : '');
+
+        // Show Accept / Reject buttons ONLY if status is pending
+        const actionButtons = status === 'pending' ? `
+            <div class="vendor-actions">
+                <button class="btn-accept" onclick="manualDecision(${v.id}, '${v.name.replace(/'/g, "\\'")}', 'accepted', ${v.required_milk})">
+                    ✅ Accept & Send Notification (${v.required_milk}L)
+                </button>
+                <button class="btn-reject" onclick="manualDecision(${v.id}, '${v.name.replace(/'/g, "\\'")}', 'rejected', 0)">
+                    ❌ Reject & Send Notification
+                </button>
+            </div>
+        ` : '';
 
         return `
             <div class="vendor-item ${status}" style="border: 1px solid #e2e8f0; padding: 14px; border-radius: 10px; margin-bottom: 10px; background: #fff;">
@@ -41,16 +54,7 @@ function renderVendors() {
                     <span class="badge ${status}">${status.toUpperCase()}</span>
                 </div>
                 <p style="margin: 6px 0;">📍 ${v.location} | 🥛 Demand: <strong>${v.required_milk}L</strong> | ⭐ ${v.rating} ${assignedInfo}</p>
-                
-                <!-- Manual Accept / Reject Buttons for BMC Manager -->
-                <div class="vendor-actions">
-                    <button class="btn-accept" onclick="manualDecision(${v.id}, '${v.name}', 'accepted', ${v.required_milk})">
-                        ✅ Accept (${v.required_milk}L)
-                    </button>
-                    <button class="btn-reject" onclick="manualDecision(${v.id}, '${v.name}', 'rejected', 0)">
-                        ❌ Reject
-                    </button>
-                </div>
+                ${actionButtons}
             </div>
         `;
     }).join('');
@@ -147,7 +151,7 @@ async function askAI() {
             </div>
             <p><strong>Recommended Quantity:</strong> ${result.quantity}L | <strong>Deliver by:</strong> ${result.delivery_time}</p>
             ${targetId ? `
-                <button class="btn-accept" onclick="manualDecision(${targetId}, '${result.vendor}', 'accepted', ${result.quantity})">
+                <button class="btn-accept" onclick="manualDecision(${targetId}, '${result.vendor.replace(/'/g, "\\'")}', 'accepted', ${result.quantity})">
                     📱 Accept & Notify ${result.vendor}
                 </button>
             ` : ''}
@@ -169,6 +173,13 @@ async function triggerDisruption() {
     document.getElementById('milk1day').textContent = inventory.milk_1day + 'L';
     alert('🚨 YIELD DROP: -7L! Click "Handle Orders by AI" or ask AI for recommendations.');
 }
+
+// Explicitly attach functions to global window object so HTML onclick always finds them
+window.refreshData = refreshData;
+window.manualDecision = manualDecision;
+window.handleOrdersByAI = handleOrdersByAI;
+window.askAI = askAI;
+window.triggerDisruption = triggerDisruption;
 
 // AUTO-REFRESH every 5s
 setInterval(refreshData, 5000);
