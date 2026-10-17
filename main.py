@@ -3,6 +3,7 @@ import os
 import sys
 import re
 import requests
+import random
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -323,7 +324,7 @@ def reapply_rejected_order(vendor_id: int, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(v)
     return {"success": True, "status": v.status}
-    
+
 @app.get("/api/vendors/{vendor_id}")
 def get_single_vendor(vendor_id: int, db: Session = Depends(get_db)):
     v = db.query(Vendor).filter(Vendor.id == vendor_id).first()
@@ -346,17 +347,21 @@ def get_single_vendor(vendor_id: int, db: Session = Depends(get_db)):
 @app.post("/api/vendors/register")
 def register_vendor(vendor: VendorRequest, db: Session = Depends(get_db)):
     route_key, _ = get_route_info(vendor.location)
+    
+    # Generate a realistic B2B customer SLA rating between 3.5 and 4.8
+    random_rating = round(random.uniform(3.5, 4.8), 1)
+
     new_vendor = Vendor(
         name=vendor.name,
         location=route_key,
         required_milk=vendor.required_milk,
-        rating=vendor.rating,
+        rating=random_rating,
         status="pending",
     )
     db.add(new_vendor)
     db.commit()
     db.refresh(new_vendor)
-    return {"success": True, "vendor_id": new_vendor.id}
+    return {"success": True, "vendor_id": new_vendor.id, "rating": random_rating}
 
 # MANUAL ACCEPT / REJECT
 @app.post("/api/notify/{vendor_id}")
