@@ -1,11 +1,10 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Fresh Milk BMC - Intelligent Operations</title>
+    <title>Fresh Milk BMC - Intelligent Operations & Fleet</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="/static/css/style.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         .kpi-banner {
             display: grid;
@@ -19,18 +18,42 @@
             border-left: 4px solid #2563eb;
             padding: 12px 16px;
             border-radius: 8px;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
         }
         .kpi-card small { color: #64748b; font-weight: 600; text-transform: uppercase; font-size: 0.75rem; }
         .kpi-card h3 { margin: 4px 0 0 0; font-size: 1.25rem; color: #0f172a; }
+        .truck-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 14px;
+            margin-top: 12px;
+        }
+        .truck-card {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 14px;
+        }
+        .truck-bar-bg {
+            background: #e2e8f0;
+            height: 8px;
+            border-radius: 4px;
+            margin: 8px 0;
+            overflow: hidden;
+        }
+        .truck-bar-fill {
+            background: #2563eb;
+            height: 100%;
+            transition: width 0.3s;
+        }
         .vendor-actions { margin-top: 10px; display: flex; gap: 8px; }
         .btn-accept { background-color: #16a34a; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; }
         .btn-reject { background-color: #ef4444; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; }
         .btn-ai-auto { background: linear-gradient(135deg, #2563eb, #7c3aed); color: white; border: none; padding: 10px 18px; border-radius: 8px; cursor: pointer; font-weight: 700; margin-left: 8px; }
         .badge { display: inline-block; padding: 3px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 700; }
         .badge.pending { background: #fef3c7; color: #b45309; }
-        .badge.accepted { background: #dcfce7; color: #15803d; }
+        .badge.accepted, .badge.available { background: #dcfce7; color: #15803d; }
         .badge.rejected { background: #fee2e2; color: #b91c1c; }
+        .badge.in_transit { background: #dbeafe; color: #1d4ed8; }
     </style>
 </head>
 <body>
@@ -38,8 +61,8 @@
         <!-- HEADER -->
         <header>
             <div>
-                <h1>🥛 Intelligent BMC Cold-Chain & Operations</h1>
-                <small style="color: #64748b;">AI-Powered FEFO Inventory Depletion & Thermal Dispatch</small>
+                <h1>🥛 Intelligent BMC Supply Chain & Fleet Control</h1>
+                <small style="color: #64748b;">FEFO Cold-Chain Inventory + Route-Batched Refrigerated Fleet (Noida Hub)</small>
             </div>
             <div class="stats">
                 <a href="/vendor" target="_blank" style="margin-right: 15px; color: #2563eb; font-weight: bold;">🔗 Open Vendor Portal</a>
@@ -47,7 +70,7 @@
             </div>
         </header>
 
-        <!-- INDUSTRIAL EFFICIENCY & SUSTAINABILITY KPIs (Hackathon Theme) -->
+        <!-- INDUSTRIAL KPIs -->
         <div class="kpi-banner">
             <div class="kpi-card" style="border-left-color: #16a34a;">
                 <small>🌱 Spoilage Prevented (FEFO)</small>
@@ -58,16 +81,16 @@
                 <h3 id="kpiRevenue">₹0</h3>
             </div>
             <div class="kpi-card" style="border-left-color: #f59e0b;">
-                <small>🌡️ Live Hub Telemetry (Noida)</small>
-                <h3 id="liveWeatherDisplay" style="font-size: 0.95rem;">Fetching live weather...</h3>
+                <small>🌡️ Live Noida Hub Weather</small>
+                <h3 id="liveWeatherDisplay" style="font-size: 0.95rem;">Fetching...</h3>
             </div>
         </div>
 
         <!-- INVENTORY -->
         <section class="inventory">
             <div style="display: flex; justify-content: space-between; align-items: center;">
-                <h2>📦 Current Chiller Inventory (FEFO Priority)</h2>
-                <button onclick="resetInventory()" style="background:#64748b; color:#fff; border:none; padding:6px 12px; border-radius:6px; cursor:pointer;">🔄 Refill Chiller (Demo Reset)</button>
+                <h2>📦 Chiller Inventory (FEFO Depletion)</h2>
+                <button onclick="resetInventory()" style="background:#64748b; color:#fff; border:none; padding:6px 12px; border-radius:6px; cursor:pointer;">🔄 Reset Stock & Recall All Trucks</button>
             </div>
             <div class="milk-cards">
                 <div class="milk-card urgent">
@@ -85,13 +108,19 @@
             </div>
         </section>
 
+        <!-- REFRIGERATED TRUCK FLEET (NEW!) -->
+        <section class="fleet" style="margin: 24px 0;">
+            <h2>🚚 Refrigerated Fleet Allocation (Max 30L / Truck — Same-Route Batching)</h2>
+            <div id="trucksList" class="truck-grid">Loading fleet...</div>
+        </section>
+
         <!-- VENDORS LIST -->
         <section class="vendors">
             <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 12px;">
                 <h2 style="margin: 0;">🛒 Registered Vendor Orders</h2>
                 <div>
                     <button onclick="refreshData()">🔄 Refresh</button>
-                    <button class="btn-ai-auto" onclick="handleOrdersByAI()">🤖 Handle Orders by AI</button>
+                    <button class="btn-ai-auto" onclick="handleOrdersByAI()">🤖 Handle Orders & Fleet by AI</button>
                 </div>
             </div>
 
@@ -101,20 +130,20 @@
 
         <!-- AI CHAT ADVISOR -->
         <section class="ai-chat">
-            <h2>💬 Ask AI Operations Advisor</h2>
+            <h2>💬 Ask AI Logistics Advisor</h2>
             <div id="aiResponse" class="ai-output"></div>
             <div class="chat-input">
-                <input type="text" id="aiQuery" placeholder="Ask AI: Which vendor minimizes thermal spoilage risk right now?">
+                <input type="text" id="aiQuery" placeholder="Ask AI: Which vendor is closest and can share a truck?">
                 <button onclick="askAI()">Ask AI</button>
             </div>
         </section>
 
         <!-- TRIGGER DISRUPTION -->
         <section class="demo">
-            <button class="disrupt-btn" onclick="triggerDisruption()">🚨 Simulate Chiller Failure / Yield Drop (-7L)</button>
+            <button class="disrupt-btn" onclick="triggerDisruption()">🚨 Simulate Chiller Failure (-7L)</button>
         </section>
     </div>
 
-    <script src="/static/js/dashboard.js?v=4"></script>
+    <script src="/static/js/dashboard.js?v=5"></script>
 </body>
 </html>

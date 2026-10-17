@@ -15,25 +15,21 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-# Import Vertex AI Gemini client
 from app.client.vertex_client import client
 
-# Import database session and models
 try:
-    from app.db import get_db, Vendor, Inventory
+    from app.db import get_db, Vendor, Inventory, Truck
 except ImportError:
-    from db import get_db, Vendor, Inventory
+    from db import get_db, Vendor, Inventory, Truck
 
 load_dotenv()
 
 OPENWEATHER_KEY = os.getenv("OPENWEATHER_API_KEY", "")
 
-# --- 1. DIRECTORY PATHS ---
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "app" / "static"
 TEMPLATE_DIR = BASE_DIR / "app" / "templates"
 
-# --- 2. FASTAPI APP INITIALIZATION ---
 app = FastAPI()
 
 app.add_middleware(
@@ -46,12 +42,25 @@ app.add_middleware(
 
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
-# --- 3. PYDANTIC MODELS ---
+# --- FIXED ROUTE LOGISTICS MATRIX (FROM NOIDA BMC HUB) ---
+ROUTE_DATA = {
+    "Noida": {"distance_km": 8, "eta": "~20 mins", "lat": 28.5355, "lon": 77.3910},
+    "Delhi": {"distance_km": 25, "eta": "~45 mins", "lat": 28.6139, "lon": 77.2090},
+    "Gurugram": {"distance_km": 50, "eta": "~90 mins", "lat": 28.4595, "lon": 77.0266},
+}
+
+def get_route_info(location_name: str):
+    for key, val in ROUTE_DATA.items():
+        if key.lower() in (location_name or "").lower():
+            return key, val
+    return "Noida", ROUTE_DATA["Noida"]
+
+# --- MODELS ---
 class VendorRequest(BaseModel):
     name: str
     location: str
     required_milk: float
-    rating: float = 4.0
+    rating: float = 4.5
 
 class ManagerQuery(BaseModel):
     query: str
@@ -66,42 +75,81 @@ class AutoHandleRequest(BaseModel):
     inventory: dict
     weather: str = ""
 
-# --- HELPER: ENSURE INVENTORY EXISTS & DEDUCT STOCK (FEFO) ---
+# --- HELPERS: INVENTORY & FLEET ---
 def get_or_create_inventory(db: Session) -> Inventory:
     inv = db.query(Inventory).filter(Inventory.id == "current").first()
     if not inv:
-        inv = Inventory(
-            id="current",
-            milk_0days=30.0,
-            milk_1day=10.0,
-            milk_2days=5.0,
-            office="Noida"
-        )
+        inv = Inventory(id="current", milk_0days=30.0, milk_1day=10.0, milk_2days=5.0, office="Noida")
         db.add(inv)
         db.commit()
         db.refresh(inv)
     return inv
 
+def get_or_create_trucks(db: Session):
+    trucks = db.query(Truck).all()
+    if not trucks:
+        default_fleet = [
+            Truck(name="Truck-1 (UP16-A-101)", capacity=30.0, current_load=0.0, assigned_route=None, status="available"),
+            Truck(name="Truck-2 (DL1M-B-202)", capacity=30.0, current_load=0.0, assigned_route=None, status="available"),
+            Truck(name="Truck-3 (HR26-C-303)", capacity=30.0, current_load=0.0, assigned_route=None, status="available"),
+        ]
+        db.add_all(default_fleet)
+        db.commit()
+        trucks = db.query(Truck).all()
+    return trucks
+
+def allocate_truck_for_order(db: Session, route_name: str, requested_qty: float):
+    """
+    Smart Route Batching:
+    1. First looks for a truck ALREADY going to the SAME route ('Noida', 'Delhi', or 'Gurugram') that has spare capacity.
+    2. Otherwise picks an empty 'available' truck and assigns it to this route.
+    3. Caps allocation to the truck's remaining capacity (max 30L per truck).
+    """
+    get_or_create_trucks(db)
+
+    # Step 1: Check if an existing truck on the SAME route has room (Route Batching!)
+    same_route_truck = db.query(Truck).filter(
+        Truck.assigned_route == route_name,
+        Truck.current_load < Truck.capacity
+    ).first()
+
+    if same_route_truck:
+        spare_cap = round(same_route_truck.capacity - same_route_truck.current_load, 2)
+        loaded_qty = min(requested_qty, spare_cap)
+        same_route_truck.current_load = round(same_route_truck.current_load + loaded_qty, 2)
+        same_route_truck.status = "in_transit"
+        db.commit()
+        return same_route_truck, loaded_qty
+
+    # Step 2: Find a fresh unassigned truck
+    free_truck = db.query(Truck).filter(
+        Truck.assigned_route.is_(None),
+        Truck.status == "available"
+    ).first()
+
+    if free_truck:
+        loaded_qty = min(requested_qty, free_truck.capacity)
+        free_truck.assigned_route = route_name
+        free_truck.current_load = round(loaded_qty, 2)
+        free_truck.status = "in_transit"
+        db.commit()
+        return free_truck, loaded_qty
+
+    return None, 0.0
+
 def deduct_inventory_fefo(db: Session, quantity_to_deduct: float):
-    """
-    FEFO (First-Expired, First-Out):
-    Deducts from 0-day milk first, then 1-day, then 2-day milk.
-    """
     inv = get_or_create_inventory(db)
     rem = float(quantity_to_deduct)
 
-    # 1. Deduct from 0-day urgent stock first
     used_0 = min(inv.milk_0days, rem)
     inv.milk_0days = round(inv.milk_0days - used_0, 2)
     rem -= used_0
 
-    # 2. Deduct from 1-day stock next
     if rem > 0:
         used_1 = min(inv.milk_1day, rem)
         inv.milk_1day = round(inv.milk_1day - used_1, 2)
         rem -= used_1
 
-    # 3. Deduct from 2-day stock last
     if rem > 0:
         used_2 = min(inv.milk_2days, rem)
         inv.milk_2days = round(inv.milk_2days - used_2, 2)
@@ -111,54 +159,21 @@ def deduct_inventory_fefo(db: Session, quantity_to_deduct: float):
     db.refresh(inv)
     return inv
 
-# --- HELPER: CONVERT LOCATION NAME TO LAT/LON & GET WEATHER ---
-def get_coordinates(location_name: str):
-    """Converts a sector/city name (e.g. 'Sector 62, Noida') into (lat, lon)."""
-    # Default coordinates for Noida BMC Hub
-    default_coords = (28.5355, 77.3910)
-    if not location_name:
-        return default_coords
-
-    # Clean sector strings like "Sector 62, Noida" -> search city or full string
-    if OPENWEATHER_KEY:
-        try:
-            geo_url = f"http://api.openweathermap.org/geo/1.0/direct?q={location_name},IN&limit=1&appid={OPENWEATHER_KEY}"
-            res = requests.get(geo_url, timeout=3)
-            if res.status_code == 200 and len(res.json()) > 0:
-                data = res.json()[0]
-                return (data["lat"], data["lon"])
-        except Exception as e:
-            print(f"Geocoding fallback triggered: {e}", flush=True)
-
-    # Smart fallback dictionary for common NCR / Hackathon test locations
-    loc_lower = location_name.lower()
-    if "greater noida" in loc_lower:
-        return (28.4744, 77.5040)
-    elif "delhi" in loc_lower:
-        return (28.6139, 77.2090)
-    elif "gurgaon" in loc_lower or "gurugram" in loc_lower:
-        return (28.4595, 77.0266)
-    elif "ghaziabad" in loc_lower:
-        return (28.6692, 77.4538)
-    return default_coords
-
-# --- 4. ROUTES ---
+# --- ROUTES ---
 
 @app.get("/")
 async def home():
-    index_file = TEMPLATE_DIR / "index.html"
-    return FileResponse(index_file)
+    return FileResponse(TEMPLATE_DIR / "index.html")
 
 @app.get("/vendor")
 async def vendor_page():
-    vendor_file = TEMPLATE_DIR / "vendor.html"
-    return FileResponse(vendor_file)
+    return FileResponse(TEMPLATE_DIR / "vendor.html")
 
 @app.get("/api/weather")
 def fetch_live_weather(location: str = "Noida"):
-    lat, lon = get_coordinates(location)
-    
-    # 1. Try OpenWeatherMap Current Weather API using lat & lon
+    route_key, info = get_route_info(location)
+    lat, lon = info["lat"], info["lon"]
+
     if OPENWEATHER_KEY:
         try:
             owm_url = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&units=metric&appid={OPENWEATHER_KEY}"
@@ -167,44 +182,12 @@ def fetch_live_weather(location: str = "Noida"):
                 data = res.json()
                 temp = round(data["main"]["temp"], 1)
                 desc = data["weather"][0]["main"]
-                humidity = data["main"]["humidity"]
-                risk = "HIGH SPOILAGE RISK" if temp >= 30 else ("MODERATE" if temp >= 24 else "OPTIMAL COLD-CHAIN")
-                return {
-                    "location": location,
-                    "lat": lat,
-                    "lon": lon,
-                    "summary": f"{desc}, {temp}°C (Humidity: {humidity}%) [{risk}]",
-                    "temp": temp
-                }
-        except Exception as e:
-            print(f"OpenWeather API error: {e}", flush=True)
-
-        # 2. Fallback: Check if key is a WAQI token (from your snippet)
-        try:
-            waqi_url = f"https://api.waqi.info/feed/geo:{lat};{lon}/?token={OPENWEATHER_KEY}"
-            res = requests.get(waqi_url, timeout=3)
-            if res.status_code == 200 and res.json().get("status") == "ok":
-                aqi_data = res.json()["data"]
-                aqi = aqi_data.get("aqi", 0)
-                temp = aqi_data.get("iaqi", {}).get("t", {}).get("v", 26)
-                return {
-                    "location": location,
-                    "lat": lat,
-                    "lon": lon,
-                    "summary": f"Temp: {temp}°C, AQI: {aqi} (Lat: {round(lat,2)}, Lon: {round(lon,2)})",
-                    "temp": temp
-                }
+                risk = "HIGH SPOILAGE RISK" if temp >= 30 else ("MODERATE RISK" if temp >= 24 else "OPTIMAL")
+                return {"location": route_key, "summary": f"{desc}, {temp}°C [{risk}]", "temp": temp}
         except Exception:
             pass
 
-    # Default live-like response if API key is missing/invalid
-    return {
-        "location": location,
-        "lat": lat,
-        "lon": lon,
-        "summary": f"28.5°C, Clear Sky (Lat: {round(lat,2)}, Lon: {round(lon,2)}) [MODERATE THERMAL RISK]",
-        "temp": 28.5
-    }
+    return {"location": route_key, "summary": "28.5°C, Clear [MODERATE THERMAL RISK]", "temp": 28.5}
 
 @app.get("/api/inventory")
 def get_inventory(db: Session = Depends(get_db)):
@@ -217,22 +200,52 @@ def get_inventory(db: Session = Depends(get_db)):
         "office": inv.office,
     }
 
+@app.get("/api/trucks")
+def get_trucks(db: Session = Depends(get_db)):
+    trucks = get_or_create_trucks(db)
+    return [
+        {
+            "id": t.id,
+            "name": t.name,
+            "capacity": t.capacity,
+            "current_load": t.current_load,
+            "assigned_route": t.assigned_route or "Unassigned",
+            "status": t.status,
+            "eta": ROUTE_DATA[t.assigned_route]["eta"] if t.assigned_route in ROUTE_DATA else "--"
+        }
+        for t in trucks
+    ]
+
+@app.post("/api/trucks/{truck_id}/return")
+def mark_truck_returned(truck_id: int, db: Session = Depends(get_db)):
+    """Frees up a truck when it returns to BMC after completing its route deliveries."""
+    t = db.query(Truck).filter(Truck.id == truck_id).first()
+    if not t:
+        raise HTTPException(status_code=404, detail="Truck not found")
+    t.current_load = 0.0
+    t.assigned_route = None
+    t.status = "available"
+    db.commit()
+    return {"success": True}
+
 @app.post("/api/inventory/disrupt")
 def simulate_disruption(db: Session = Depends(get_db)):
-    """Persists the yield drop / cooling unit disruption in DB."""
     inv = get_or_create_inventory(db)
     inv.milk_1day = max(0.0, inv.milk_1day - 7.0)
     db.commit()
-    db.refresh(inv)
     return {"success": True, "milk_1day": inv.milk_1day}
 
 @app.post("/api/inventory/reset")
 def reset_demo(db: Session = Depends(get_db)):
-    """Handy button for hackathon judges demo to reset stock to full!"""
+    """Resets Chiller Inventory AND recalls all Trucks for clean Hackathon Demos."""
     inv = get_or_create_inventory(db)
     inv.milk_0days = 30.0
     inv.milk_1day = 10.0
     inv.milk_2days = 5.0
+    for t in get_or_create_trucks(db):
+        t.current_load = 0.0
+        t.assigned_route = None
+        t.status = "available"
     db.commit()
     return {"success": True}
 
@@ -244,10 +257,13 @@ def get_vendors(db: Session = Depends(get_db)):
             "id": v.id,
             "name": v.name,
             "location": v.location,
+            "distance_km": ROUTE_DATA.get(v.location, ROUTE_DATA["Noida"])["distance_km"],
             "required_milk": v.required_milk,
             "rating": v.rating,
             "status": v.status,
             "assigned_quantity": v.assigned_quantity,
+            "truck_name": v.truck_name,
+            "eta": v.eta,
             "notification_time": str(v.notification_time) if v.notification_time else None
         }
         for v in vendors
@@ -262,18 +278,22 @@ def get_single_vendor(vendor_id: int, db: Session = Depends(get_db)):
         "id": v.id,
         "name": v.name,
         "location": v.location,
+        "distance_km": ROUTE_DATA.get(v.location, ROUTE_DATA["Noida"])["distance_km"],
         "required_milk": v.required_milk,
         "rating": v.rating,
         "status": v.status,
         "assigned_quantity": v.assigned_quantity,
+        "truck_name": v.truck_name,
+        "eta": v.eta,
         "notification_time": str(v.notification_time) if v.notification_time else None
     }
 
 @app.post("/api/vendors/register")
 def register_vendor(vendor: VendorRequest, db: Session = Depends(get_db)):
+    route_key, _ = get_route_info(vendor.location)
     new_vendor = Vendor(
         name=vendor.name,
-        location=vendor.location,
+        location=route_key,
         required_milk=vendor.required_milk,
         rating=vendor.rating,
         status="pending",
@@ -283,7 +303,7 @@ def register_vendor(vendor: VendorRequest, db: Session = Depends(get_db)):
     db.refresh(new_vendor)
     return {"success": True, "vendor_id": new_vendor.id}
 
-# MANUAL ACCEPT / REJECT FROM BMC DASHBOARD (NOW DECREASES INVENTORY!)
+# MANUAL ACCEPT / REJECT WITH AUTOMATIC TRUCK BATCHING
 @app.post("/api/notify/{vendor_id}")
 def send_notification(vendor_id: int, payload: NotifyRequest, db: Session = Depends(get_db)):
     vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
@@ -291,28 +311,48 @@ def send_notification(vendor_id: int, payload: NotifyRequest, db: Session = Depe
         raise HTTPException(status_code=404, detail="Vendor not found")
 
     inv = get_or_create_inventory(db)
-    total_available = inv.milk_0days + inv.milk_1day + inv.milk_2days
+    total_available = round(inv.milk_0days + inv.milk_1day + inv.milk_2days, 2)
 
     if payload.status == "accepted":
         if total_available <= 0:
-            raise HTTPException(status_code=400, detail="Out of stock! Cannot accept order.")
-        # Cap allocation to available stock if requested > available
-        allocated = min(float(payload.quantity), total_available)
+            raise HTTPException(status_code=400, detail="Chiller Out of Stock!")
+
+        desired_qty = min(float(payload.quantity), total_available)
+        route_key, route_info = get_route_info(vendor.location)
+
+        # Allocate or batch onto a Truck (max 30L per truck)
+        truck, loaded_qty = allocate_truck_for_order(db, route_key, desired_qty)
+        if not truck or loaded_qty <= 0:
+            raise HTTPException(
+                status_code=400,
+                detail=f"No truck available for route '{route_key}'! Mark an in-transit truck as 'Returned' first."
+            )
+
         vendor.status = "accepted"
-        vendor.assigned_quantity = allocated
+        vendor.assigned_quantity = loaded_qty
+        vendor.truck_name = truck.name
+        vendor.eta = f"{route_info['eta']} ({route_info['distance_km']} km via {route_key} Route)"
         vendor.notification_time = datetime.utcnow()
-        # Deduct from database inventory using FEFO
-        deduct_inventory_fefo(db, allocated)
+
+        deduct_inventory_fefo(db, loaded_qty)
     else:
         vendor.status = "rejected"
         vendor.assigned_quantity = 0.0
+        vendor.truck_name = None
+        vendor.eta = None
         vendor.notification_time = datetime.utcnow()
 
     db.commit()
     db.refresh(vendor)
-    return {"success": True, "status": vendor.status, "assigned_quantity": vendor.assigned_quantity}
+    return {
+        "success": True,
+        "status": vendor.status,
+        "assigned_quantity": vendor.assigned_quantity,
+        "truck_name": vendor.truck_name,
+        "eta": vendor.eta
+    }
 
-# AUTOMATICALLY HANDLE ALL PENDING ORDERS BY AI (WITH INVENTORY DEDUCTION)
+# ONE-CLICK AI AUTO-ALLOCATION (STOCK + ROUTE BATCHING + 30L TRUCK CAPACITY)
 @app.post("/api/ai/handle-orders")
 def ai_handle_all_orders(payload: AutoHandleRequest, db: Session = Depends(get_db)):
     pending_vendors = db.query(Vendor).filter(Vendor.status == "pending").all()
@@ -321,141 +361,156 @@ def ai_handle_all_orders(payload: AutoHandleRequest, db: Session = Depends(get_d
 
     inv = get_or_create_inventory(db)
     total_available = round(inv.milk_0days + inv.milk_1day + inv.milk_2days, 2)
+    trucks = get_or_create_trucks(db)
 
     vendors_list = []
     for v in pending_vendors:
-        lat, lon = get_coordinates(v.location)
+        r_key, r_info = get_route_info(v.location)
         vendors_list.append({
             "id": v.id,
             "name": v.name,
-            "location": v.location,
-            "coordinates": f"{round(lat,3)}, {round(lon,3)}",
+            "route": r_key,
+            "distance_from_noida_hub_km": r_info["distance_km"],
+            "estimated_travel_time": r_info["eta"],
             "required_milk": v.required_milk,
             "rating": v.rating
         })
 
+    fleet_status = [
+        {"name": t.name, "route": t.assigned_route, "remaining_capacity_L": t.capacity - t.current_load, "status": t.status}
+        for t in trucks
+    ]
+
     prompt = f"""
-    You are an Intelligent Dairy Manufacturing & Supply Chain AI (FEFO Cold-Chain Optimizer).
-    CURRENT BMC INVENTORY: Total = {total_available}L 
-    - Urgent 0-day shelf-life: {inv.milk_0days}L (MUST DISPATCH FIRST TO PREVENT SPOILAGE)
-    - 1-day shelf-life: {inv.milk_1day}L
-    - 2-day shelf-life: {inv.milk_2days}L
-    LIVE WEATHER & THERMAL CONDITIONS: {payload.weather}
+    You are an Industrial Dairy Supply Chain & Fleet Dispatch AI at the Noida BMC Hub.
+    CHILLER INVENTORY: Total = {total_available}L (Urgent 0-day: {inv.milk_0days}L, 1-day: {inv.milk_1day}L, 2-day: {inv.milk_2days}L)
+    FLEET STATUS (Each Truck max 30L capacity, orders on the SAME route share a truck):
+    {json.dumps(fleet_status, indent=2)}
 
     PENDING VENDOR ORDERS:
     {json.dumps(vendors_list, indent=2)}
 
-    RULES:
-    1. You CANNOT allocate more than the Total Available Milk ({total_available}L) across all accepted vendors combined.
-    2. If totalAvailable is 0, reject all orders.
-    3. Prioritize vendors with high ratings, closer coordinates to Noida (28.53, 77.39) especially in warm weather, and quantities that clear the urgent {inv.milk_0days}L stock.
-    4. Partial fulfillment is allowed if stock is running low.
+    DISPATCH RULES:
+    1. DO NOT allocate more milk than Total Available ({total_available}L) or available Truck Capacity.
+    2. Prioritize:
+       - Closer routes first (Noida = 8km, Delhi = 25km, Gurugram = 50km) to minimize thermal spoilage.
+       - Route Batching: Group vendors in the same city onto the same 30L truck.
+       - Higher vendor rating.
 
-    Respond ONLY with a valid JSON object matching this exact schema:
+    Respond ONLY with a valid JSON object:
     {{
-      "summary": "Industrial efficiency summary explaining FEFO stock depletion and thermal routing",
+      "summary": "Brief explanation of FEFO inventory usage and how orders were batched onto trucks by route",
       "decisions": [
         {{
           "id": 1,
           "name": "vendor name",
           "status": "accepted",
-          "assigned_quantity": 25.0,
-          "reason": "High rating, clears 0-day urgent batch"
+          "assigned_quantity": 20.0,
+          "reason": "Closest route (Noida, 8km) + batched onto Truck-1"
         }}
       ]
     }}
     """
 
     try:
-        response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=prompt,
-        )
-        raw_text = response.text.strip()
-        cleaned_text = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw_text, flags=re.MULTILINE).strip()
-        result = json.loads(cleaned_text)
-        decisions = result.get("decisions", [])
-
-        remaining_stock = total_available
-        final_decisions = []
-
-        for dec in decisions:
-            v = db.query(Vendor).filter(Vendor.id == dec.get("id")).first()
-            if not v:
-                continue
-
-            status_val = str(dec.get("status", "rejected")).lower()
-            req_qty = float(dec.get("assigned_quantity", v.required_milk))
-
-            if status_val == "accepted" and remaining_stock > 0:
-                actual_qty = min(req_qty, remaining_stock)
-                v.status = "accepted"
-                v.assigned_quantity = actual_qty
-                v.notification_time = datetime.utcnow()
-                deduct_inventory_fefo(db, actual_qty)
-                remaining_stock = round(remaining_stock - actual_qty, 2)
-                dec["assigned_quantity"] = actual_qty
-                final_decisions.append(dec)
-            else:
-                v.status = "rejected"
-                v.assigned_quantity = 0.0
-                v.notification_time = datetime.utcnow()
-                dec["status"] = "rejected"
-                dec["assigned_quantity"] = 0.0
-                if remaining_stock <= 0 and status_val == "accepted":
-                    dec["reason"] = "Rejected automatically: Inventory depleted"
-                final_decisions.append(dec)
-
-        db.commit()
-        return {
-            "summary": result.get("summary", "FEFO optimization complete."),
-            "decisions": final_decisions
-        }
-
+        response = client.models.generate_content(model="gemini-2.5-flash", contents=prompt)
+        cleaned = re.sub(r"^```(?:json)?\s*|\s*```$", "", response.text.strip(), flags=re.MULTILINE).strip()
+        result = json.loads(cleaned)
+        ai_decisions = result.get("decisions", [])
     except Exception as e:
-        print(f"AI Auto-Handle Fallback: {e}", flush=True)
-        remaining = total_available
-        fallback_decisions = []
-        for v in sorted(pending_vendors, key=lambda x: x.rating, reverse=True):
-            if remaining > 0:
-                alloc = min(v.required_milk, remaining)
+        print(f"AI fallback triggered: {e}", flush=True)
+        # Sort by shortest distance first, then highest rating
+        sorted_v = sorted(
+            pending_vendors,
+            key=lambda x: (ROUTE_DATA.get(x.location, ROUTE_DATA["Noida"])["distance_km"], -x.rating)
+        )
+        ai_decisions = [
+            {"id": v.id, "name": v.name, "status": "accepted", "assigned_quantity": v.required_milk,
+             "reason": f"Optimized for {v.location} route ({ROUTE_DATA.get(v.location, ROUTE_DATA['Noida'])['distance_km']} km)"}
+            for v in sorted_v
+        ]
+        result = {"summary": "Allocated orders by shortest route distance and truck capacity."}
+
+    remaining_stock = total_available
+    final_decisions = []
+
+    for dec in ai_decisions:
+        v = db.query(Vendor).filter(Vendor.id == dec.get("id")).first()
+        if not v:
+            continue
+
+        status_val = str(dec.get("status", "rejected")).lower()
+        req_qty = min(float(dec.get("assigned_quantity", v.required_milk)), v.required_milk)
+        r_key, r_info = get_route_info(v.location)
+
+        if status_val == "accepted" and remaining_stock > 0:
+            qty_to_try = min(req_qty, remaining_stock)
+            truck, loaded_qty = allocate_truck_for_order(db, r_key, qty_to_try)
+
+            if truck and loaded_qty > 0:
                 v.status = "accepted"
-                v.assigned_quantity = alloc
-                deduct_inventory_fefo(db, alloc)
-                remaining = round(remaining - alloc, 2)
-                reason = "Accepted via FEFO priority rule"
+                v.assigned_quantity = loaded_qty
+                v.truck_name = truck.name
+                v.eta = f"{r_info['eta']} ({r_info['distance_km']} km)"
+                v.notification_time = datetime.utcnow()
+
+                deduct_inventory_fefo(db, loaded_qty)
+                remaining_stock = round(remaining_stock - loaded_qty, 2)
+
+                final_decisions.append({
+                    "id": v.id,
+                    "name": v.name,
+                    "status": "accepted",
+                    "assigned_quantity": loaded_qty,
+                    "truck": truck.name,
+                    "eta": v.eta,
+                    "reason": f"{dec.get('reason', 'Route matched')} | Assigned {truck.name} ({r_info['distance_km']}km, ETA {r_info['eta']})"
+                })
             else:
                 v.status = "rejected"
                 v.assigned_quantity = 0.0
-                reason = "Rejected (Inventory exhausted)"
+                v.notification_time = datetime.utcnow()
+                final_decisions.append({
+                    "id": v.id, "name": v.name, "status": "rejected", "assigned_quantity": 0.0,
+                    "reason": f"Rejected: No truck capacity left for {r_key} route (30L max/truck)"
+                })
+        else:
+            v.status = "rejected"
+            v.assigned_quantity = 0.0
             v.notification_time = datetime.utcnow()
-            fallback_decisions.append({
-                "id": v.id, "name": v.name, "status": v.status,
-                "assigned_quantity": v.assigned_quantity, "reason": reason
+            final_decisions.append({
+                "id": v.id, "name": v.name, "status": "rejected", "assigned_quantity": 0.0,
+                "reason": dec.get("reason", "Insufficient inventory / lower route priority")
             })
-        db.commit()
-        return {"summary": "Processed all orders using FEFO priority rules.", "decisions": fallback_decisions}
+
+    db.commit()
+    return {
+        "summary": result.get("summary", "Processed orders with FEFO stock & 30L truck route batching."),
+        "decisions": final_decisions
+    }
 
 @app.post("/api/ai/recommend")
 def ai_recommend(query: ManagerQuery, db: Session = Depends(get_db)):
     inv = get_or_create_inventory(db)
     vendors = get_vendors(db)
+    trucks = get_trucks(db)
     if not vendors:
         return {"vendor": "No Vendors Available", "reasoning": "Register a vendor first.", "quantity": 0, "delivery_time": "N/A"}
 
     prompt = f"""
-    You are an Industrial Dairy Supply Chain AI.
-    CURRENT INVENTORY: {inv.milk_0days}L (0d urgent), {inv.milk_1day}L (1d), {inv.milk_2days}L (2d)
-    WEATHER & AMBIENT TELEMETRY: {query.weather}
-    VENDORS: {json.dumps(vendors, indent=2)}
+    You are an Industrial Dairy Supply Chain AI at the Noida BMC Hub.
+    DISTANCES FROM NOIDA HUB: Noida = 8km (~20 mins), Delhi = 25km (~45 mins), Gurugram = 50km (~90 mins).
+    INVENTORY: {inv.milk_0days}L (0d), {inv.milk_1day}L (1d), {inv.milk_2days}L (2d)
+    TRUCK FLEET (30L max each): {json.dumps(trucks)}
+    VENDORS: {json.dumps(vendors)}
     MANAGER QUERY: "{query.query}"
 
-    Respond ONLY with a valid JSON object:
+    Respond ONLY with valid JSON:
     {{
       "vendor": "exact vendor name",
-      "reasoning": "explanation referencing FEFO spoilage & weather",
-      "quantity": 25.0,
-      "delivery_time": "14:30"
+      "reasoning": "mention exact km distance, route batching, and rating",
+      "quantity": 20.0,
+      "delivery_time": "~20 mins (8 km)"
     }}
     """
     try:
@@ -464,10 +519,10 @@ def ai_recommend(query: ManagerQuery, db: Session = Depends(get_db)):
         result = json.loads(cleaned)
         return {
             "vendor": result.get("vendor", vendors[0]["name"]),
-            "reasoning": result.get("reasoning", "Optimal FEFO match."),
+            "reasoning": result.get("reasoning", "Optimal route & FEFO match."),
             "quantity": float(result.get("quantity", vendors[0]["required_milk"])),
-            "delivery_time": result.get("delivery_time", "11:00 AM"),
+            "delivery_time": result.get("delivery_time", "~20 mins"),
         }
     except Exception:
-        top = sorted(vendors, key=lambda v: v.get("rating", 0), reverse=True)[0]
-        return {"vendor": top["name"], "reasoning": "Highest rated vendor.", "quantity": top["required_milk"], "delivery_time": "10:30 AM"}
+        top = vendors[0]
+        return {"vendor": top["name"], "reasoning": f"Located in {top['location']} ({top['distance_km']} km).", "quantity": top["required_milk"], "delivery_time": "~30 mins"}

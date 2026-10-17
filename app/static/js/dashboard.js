@@ -1,6 +1,7 @@
 let vendors = [];
+let trucks = [];
 let inventory = {};
-let cachedWeather = "Loading...";
+let cachedWeather = "28.5°C";
 
 async function getWeather(locationName = "Noida") {
     try {
@@ -17,29 +18,69 @@ async function getWeather(locationName = "Noida") {
 
 async function refreshData() {
     try {
-        // 1. Get live inventory from DB
+        // 1. Inventory
         const invRes = await fetch('/api/inventory');
         inventory = await invRes.json();
-        
         const el0 = document.getElementById('milk0days');
         if (el0) el0.textContent = inventory.milk_0days + 'L';
         document.getElementById('milk1day').textContent = inventory.milk_1day + 'L';
         document.getElementById('milk2days').textContent = inventory.milk_2days + 'L';
-        
-        // 2. Get vendors
+
+        // 2. Trucks Fleet
+        const truckRes = await fetch('/api/trucks');
+        trucks = await truckRes.json();
+        renderTrucks();
+
+        // 3. Vendors
         const venRes = await fetch('/api/vendors');
         vendors = await venRes.json();
         renderVendors();
         updateKPIs();
-        
+
         document.getElementById('lastUpdate').textContent = `Last sync: ${new Date().toLocaleTimeString()}`;
     } catch(e) {
         console.error('Refresh failed:', e);
     }
 }
 
+function renderTrucks() {
+    const container = document.getElementById('trucksList');
+    if (!container) return;
+
+    container.innerHTML = trucks.map(t => {
+        const pct = Math.min(100, Math.round((t.current_load / t.capacity) * 100));
+        const isTransit = t.status === 'in_transit';
+        return `
+            <div class="truck-card">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <strong>🚚 ${t.name}</strong>
+                    <span class="badge ${t.status}">${isTransit ? 'IN TRANSIT' : 'AVAILABLE'}</span>
+                </div>
+                <p style="margin: 8px 0 4px 0; font-size: 0.9rem;">
+                    📍 <strong>Route:</strong> ${t.assigned_route} ${isTransit ? `(ETA: ${t.eta})` : ''}
+                </p>
+                <div style="font-size: 0.85rem; color: #475569;">
+                    Load: <strong>${t.current_load}L / ${t.capacity}L</strong> (${pct}%)
+                </div>
+                <div class="truck-bar-bg">
+                    <div class="truck-bar-fill" style="width: ${pct}%; background: ${pct >= 100 ? '#16a34a' : '#2563eb'};"></div>
+                </div>
+                ${isTransit ? `
+                    <button onclick="returnTruck(${t.id})" style="width:100%; margin-top:6px; padding:6px; background:#0f172a; color:#fff; border:none; border-radius:6px; cursor:pointer; font-size:0.8rem;">
+                        🔄 Mark Truck Returned (Trip Complete)
+                    </button>
+                ` : ''}
+            </div>
+        `;
+    }).join('');
+}
+
+async function returnTruck(truckId) {
+    await fetch(`/api/trucks/${truckId}/return`, { method: 'POST' });
+    await refreshData();
+}
+
 function updateKPIs() {
-    // Calculate total milk allocated to accepted vendors
     const totalDispatched = vendors
         .filter(v => (v.status || '').toLowerCase() === 'accepted')
         .reduce((sum, v) => sum + (parseFloat(v.assigned_quantity) || 0), 0);
@@ -62,16 +103,18 @@ function renderVendors() {
         const status = (v.status || 'pending').toLowerCase();
         
         const assignedInfo = status === 'accepted' 
-            ? `<span style="color: #15803d; font-weight: bold;"> | ✅ Dispatched: ${v.assigned_quantity}L</span>` 
-            : (status === 'rejected' ? `<span style="color: #b91c1c; font-weight: bold;"> | ❌ Order Rejected</span>` : '');
+            ? `<div style="margin-top:6px; color: #15803d; font-size:0.9rem;">
+                 ✅ <strong>Dispatched: ${v.assigned_quantity}L</strong> | 🚚 <strong>${v.truck_name || 'Truck'}</strong> | ⏱️ <strong>ETA: ${v.eta || '--'}</strong>
+               </div>` 
+            : (status === 'rejected' ? `<div style="margin-top:6px; color: #b91c1c; font-weight: bold;">❌ Order Rejected</div>` : '');
 
         const actionButtons = status === 'pending' ? `
             <div class="vendor-actions">
                 <button class="btn-accept" onclick="manualDecision(${v.id}, '${v.name.replace(/'/g, "\\'")}', 'accepted', ${v.required_milk})">
-                    ✅ Accept & Send Notification (${v.required_milk}L)
+                    ✅ Accept & Assign Truck (${v.required_milk}L)
                 </button>
                 <button class="btn-reject" onclick="manualDecision(${v.id}, '${v.name.replace(/'/g, "\\'")}', 'rejected', 0)">
-                    ❌ Reject & Send Notification
+                    ❌ Reject & Notify
                 </button>
             </div>
         ` : '';
@@ -82,7 +125,8 @@ function renderVendors() {
                     <h4 style="margin: 0;">${v.name}</h4>
                     <span class="badge ${status}">${status.toUpperCase()}</span>
                 </div>
-                <p style="margin: 6px 0;">📍 ${v.location} | 🥛 Demand: <strong>${v.required_milk}L</strong> | ⭐ ${v.rating} ${assignedInfo}</p>
+                <p style="margin: 6px 0;">📍 <strong>${v.location}</strong> (${v.distance_km} km from Noida Hub) | 🥛 Demand: <strong>${v.required_milk}L</strong> | ⭐ ${v.rating}</p>
+                ${assignedInfo}
                 ${actionButtons}
             </div>
         `;
@@ -102,11 +146,13 @@ async function manualDecision(vendorId, vendorName, decisionStatus, quantity) {
 
         const data = await res.json();
         if (res.ok) {
-            const actionLabel = decisionStatus === 'accepted' ? `ACCEPTED (${data.assigned_quantity}L deducted via FEFO)` : 'REJECTED';
-            alert(`📱 Notification sent to ${vendorName}: Order ${actionLabel}`);
+            const msg = decisionStatus === 'accepted' 
+                ? `ACCEPTED (${data.assigned_quantity}L loaded onto ${data.truck_name}, ETA: ${data.eta})` 
+                : 'REJECTED';
+            alert(`📱 Notification sent to ${vendorName}: ${msg}`);
             await refreshData();
         } else {
-            alert(`❌ Error: ${data.detail || 'Failed to update status'}`);
+            alert(`❌ Cannot Accept: ${data.detail || 'Error'}`);
         }
     } catch (err) {
         console.error("Manual decision error:", err);
@@ -117,7 +163,7 @@ async function manualDecision(vendorId, vendorName, decisionStatus, quantity) {
 async function handleOrdersByAI() {
     const summaryBox = document.getElementById('aiAutoSummary');
     summaryBox.style.display = 'block';
-    summaryBox.innerHTML = '🤖 <strong>Gemini AI is running FEFO inventory optimization & thermal routing...</strong>';
+    summaryBox.innerHTML = '🤖 <strong>Gemini AI is batching orders by route (Noida 8km, Delhi 25km, Gurugram 50km) onto 30L Trucks...</strong>';
 
     try {
         const weather = await getWeather("Noida");
@@ -136,7 +182,7 @@ async function handleOrdersByAI() {
         ).join('');
 
         summaryBox.innerHTML = `
-            <h4 style="margin: 0 0 6px 0; color: #1d4ed8;">✨ AI FEFO Auto-Allocation Complete</h4>
+            <h4 style="margin: 0 0 6px 0; color: #1d4ed8;">✨ AI Fleet & FEFO Dispatch Complete</h4>
             <p style="margin: 0 0 8px 0;">${data.summary}</p>
             ${decisionsHtml ? `<ul style="margin: 0; padding-left: 20px;">${decisionsHtml}</ul>` : ''}
         `;
@@ -153,7 +199,7 @@ async function askAI() {
     if(!query) return;
     
     const aiDiv = document.getElementById('aiResponse');
-    aiDiv.innerHTML = '🤔 AI is analyzing live telemetry & stock...';
+    aiDiv.innerHTML = '🤔 AI is checking distances & truck capacities...';
     
     try {
         const weather = await getWeather("Noida");
@@ -176,10 +222,10 @@ async function askAI() {
             <div style="background: #e8f5e8; padding: 15px; border-radius: 10px; margin-bottom: 10px;">
                 <strong>Reasoning:</strong> ${result.reasoning}
             </div>
-            <p><strong>Recommended Quantity:</strong> ${result.quantity}L | <strong>Deliver by:</strong> ${result.delivery_time}</p>
+            <p><strong>Recommended Quantity:</strong> ${result.quantity}L | <strong>ETA:</strong> ${result.delivery_time}</p>
             ${targetId ? `
                 <button class="btn-accept" onclick="manualDecision(${targetId}, '${result.vendor.replace(/'/g, "\\'")}', 'accepted', ${result.quantity})">
-                    📱 Accept & Dispatch (${result.quantity}L)
+                    📱 Accept & Load onto Truck (${result.quantity}L)
                 </button>
             ` : ''}
         `;
@@ -194,7 +240,7 @@ async function askAI() {
 async function triggerDisruption() {
     await fetch('/api/inventory/disrupt', { method: 'POST' });
     await refreshData();
-    alert('🚨 CHILLER FAILURE SIMULATED: -7L lost from 1-day stock! Click "Handle Orders by AI" to re-optimize.');
+    alert('🚨 CHILLER FAILURE SIMULATED: -7L lost from 1-day stock!');
 }
 
 async function resetInventory() {
@@ -208,8 +254,8 @@ window.handleOrdersByAI = handleOrdersByAI;
 window.askAI = askAI;
 window.triggerDisruption = triggerDisruption;
 window.resetInventory = resetInventory;
+window.returnTruck = returnTruck;
 
-// Initial load
 getWeather("Noida");
 refreshData();
 setInterval(refreshData, 5000);

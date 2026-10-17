@@ -1,3 +1,4 @@
+# app/db.py (or db.py)
 import os
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime
@@ -7,9 +8,6 @@ from datetime import datetime
 
 load_dotenv()
 
-# Example Cloud SQL connection string:
-# postgresql://<DB_USER>:<DB_PASS>@<CLOUD_SQL_IP_OR_PROXY>/<DB_NAME>
-# For local fallback during development, SQLite is used if DATABASE_URL is not provided
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./app.db")
 
 engine = create_engine(
@@ -24,13 +22,25 @@ class Vendor(Base):
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     name = Column(String, nullable=False)
-    location = Column(String, nullable=False)
+    location = Column(String, nullable=False) # Noida, Delhi, or Gurugram
     required_milk = Column(Float, nullable=False)
     rating = Column(Float, default=4.0)
-    status = Column(String, default="pending")
+    status = Column(String, default="pending") # pending, accepted, rejected
     assigned_quantity = Column(Float, nullable=True)
+    truck_name = Column(String, nullable=True) # e.g., "Truck-1 (DL-1M-101)"
+    eta = Column(String, nullable=True)        # e.g., "~45 mins (25 km)"
     created_at = Column(DateTime, default=datetime.utcnow)
     notification_time = Column(DateTime, nullable=True)
+
+class Truck(Base):
+    __tablename__ = "trucks"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    name = Column(String, nullable=False)          # e.g., "Truck-1 (DL-1M-101)"
+    capacity = Column(Float, default=30.0)         # Max 30L per route
+    current_load = Column(Float, default=0.0)      # Current loaded milk
+    assigned_route = Column(String, nullable=True) # "Noida", "Delhi", "Gurugram", or None
+    status = Column(String, default="available")   # "available" or "in_transit"
 
 class Inventory(Base):
     __tablename__ = "inventory"
@@ -41,7 +51,6 @@ class Inventory(Base):
     milk_2days = Column(Float, default=5.0)
     office = Column(String, default="Noida")
 
-# Create tables
 Base.metadata.create_all(bind=engine)
 
 def get_db():
