@@ -1,23 +1,53 @@
 let vendors = [];
 let inventory = {};
+let cachedWeather = "Loading...";
+
+async function getWeather(locationName = "Noida") {
+    try {
+        const res = await fetch(`/api/weather?location=${encodeURIComponent(locationName)}`);
+        const data = await res.json();
+        cachedWeather = data.summary;
+        const weatherEl = document.getElementById('liveWeatherDisplay');
+        if (weatherEl) weatherEl.textContent = cachedWeather;
+        return cachedWeather;
+    } catch (e) {
+        return "28°C, Clear [MODERATE RISK]";
+    }
+}
 
 async function refreshData() {
     try {
-        // Get inventory
+        // 1. Get live inventory from DB
         const invRes = await fetch('/api/inventory');
         inventory = await invRes.json();
+        
+        const el0 = document.getElementById('milk0days');
+        if (el0) el0.textContent = inventory.milk_0days + 'L';
         document.getElementById('milk1day').textContent = inventory.milk_1day + 'L';
         document.getElementById('milk2days').textContent = inventory.milk_2days + 'L';
         
-        // Get vendors
+        // 2. Get vendors
         const venRes = await fetch('/api/vendors');
         vendors = await venRes.json();
         renderVendors();
+        updateKPIs();
         
         document.getElementById('lastUpdate').textContent = `Last sync: ${new Date().toLocaleTimeString()}`;
     } catch(e) {
         console.error('Refresh failed:', e);
     }
+}
+
+function updateKPIs() {
+    // Calculate total milk allocated to accepted vendors
+    const totalDispatched = vendors
+        .filter(v => (v.status || '').toLowerCase() === 'accepted')
+        .reduce((sum, v) => sum + (parseFloat(v.assigned_quantity) || 0), 0);
+
+    const kpiDisp = document.getElementById('kpiDispatched');
+    const kpiRev = document.getElementById('kpiRevenue');
+    if (kpiDisp) kpiDisp.textContent = `${totalDispatched.toFixed(1)} L`;
+    if (kpiRev) kpiRev.textContent = `₹${(totalDispatched * 55).toLocaleString('en-IN')}`;
 }
 
 function renderVendors() {
@@ -32,10 +62,9 @@ function renderVendors() {
         const status = (v.status || 'pending').toLowerCase();
         
         const assignedInfo = status === 'accepted' 
-            ? `<span style="color: #15803d; font-weight: bold;"> | ✅ Allocated: ${v.assigned_quantity}L</span>` 
+            ? `<span style="color: #15803d; font-weight: bold;"> | ✅ Dispatched: ${v.assigned_quantity}L</span>` 
             : (status === 'rejected' ? `<span style="color: #b91c1c; font-weight: bold;"> | ❌ Order Rejected</span>` : '');
 
-        // Show Accept / Reject buttons ONLY if status is pending
         const actionButtons = status === 'pending' ? `
             <div class="vendor-actions">
                 <button class="btn-accept" onclick="manualDecision(${v.id}, '${v.name.replace(/'/g, "\\'")}', 'accepted', ${v.required_milk})">
@@ -60,7 +89,6 @@ function renderVendors() {
     }).join('');
 }
 
-// Manual Accept or Reject by BMC Manager
 async function manualDecision(vendorId, vendorName, decisionStatus, quantity) {
     try {
         const res = await fetch(`/api/notify/${vendorId}`, {
@@ -72,12 +100,13 @@ async function manualDecision(vendorId, vendorName, decisionStatus, quantity) {
             })
         });
 
+        const data = await res.json();
         if (res.ok) {
-            const actionLabel = decisionStatus === 'accepted' ? `ACCEPTED (${quantity}L)` : 'REJECTED';
+            const actionLabel = decisionStatus === 'accepted' ? `ACCEPTED (${data.assigned_quantity}L deducted via FEFO)` : 'REJECTED';
             alert(`📱 Notification sent to ${vendorName}: Order ${actionLabel}`);
             await refreshData();
         } else {
-            alert('❌ Failed to update vendor order status.');
+            alert(`❌ Error: ${data.detail || 'Failed to update status'}`);
         }
     } catch (err) {
         console.error("Manual decision error:", err);
@@ -85,14 +114,13 @@ async function manualDecision(vendorId, vendorName, decisionStatus, quantity) {
     }
 }
 
-// One-Click Automatic Order Handling by AI
 async function handleOrdersByAI() {
     const summaryBox = document.getElementById('aiAutoSummary');
     summaryBox.style.display = 'block';
-    summaryBox.innerHTML = '🤖 <strong>Gemini AI is evaluating all pending vendor orders against inventory...</strong>';
+    summaryBox.innerHTML = '🤖 <strong>Gemini AI is running FEFO inventory optimization & thermal routing...</strong>';
 
     try {
-        const weather = await getWeather();
+        const weather = await getWeather("Noida");
         const res = await fetch('/api/ai/handle-orders', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
@@ -108,7 +136,7 @@ async function handleOrdersByAI() {
         ).join('');
 
         summaryBox.innerHTML = `
-            <h4 style="margin: 0 0 6px 0; color: #1d4ed8;">✨ AI Auto-Allocation Complete</h4>
+            <h4 style="margin: 0 0 6px 0; color: #1d4ed8;">✨ AI FEFO Auto-Allocation Complete</h4>
             <p style="margin: 0 0 8px 0;">${data.summary}</p>
             ${decisionsHtml ? `<ul style="margin: 0; padding-left: 20px;">${decisionsHtml}</ul>` : ''}
         `;
@@ -116,20 +144,19 @@ async function handleOrdersByAI() {
         await refreshData();
     } catch (err) {
         console.error('AI Auto-Handle failed:', err);
-        summaryBox.innerHTML = '❌ Failed to run AI auto-allocation. You can use the manual buttons below.';
+        summaryBox.innerHTML = '❌ Failed to run AI auto-allocation.';
     }
 }
 
-// Single Chat Question to AI
 async function askAI() {
     const query = document.getElementById('aiQuery').value;
     if(!query) return;
     
     const aiDiv = document.getElementById('aiResponse');
-    aiDiv.innerHTML = '🤔 AI is analyzing...';
+    aiDiv.innerHTML = '🤔 AI is analyzing live telemetry & stock...';
     
     try {
-        const weather = await getWeather();
+        const weather = await getWeather("Noida");
         const response = await fetch('/api/ai/recommend', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
@@ -152,7 +179,7 @@ async function askAI() {
             <p><strong>Recommended Quantity:</strong> ${result.quantity}L | <strong>Deliver by:</strong> ${result.delivery_time}</p>
             ${targetId ? `
                 <button class="btn-accept" onclick="manualDecision(${targetId}, '${result.vendor.replace(/'/g, "\\'")}', 'accepted', ${result.quantity})">
-                    📱 Accept & Notify ${result.vendor}
+                    📱 Accept & Dispatch (${result.quantity}L)
                 </button>
             ` : ''}
         `;
@@ -164,23 +191,25 @@ async function askAI() {
     }
 }
 
-async function getWeather() {
-    return "Rainy, 22°C";
-}
-
 async function triggerDisruption() {
-    inventory.milk_1day -= 7;
-    document.getElementById('milk1day').textContent = inventory.milk_1day + 'L';
-    alert('🚨 YIELD DROP: -7L! Click "Handle Orders by AI" or ask AI for recommendations.');
+    await fetch('/api/inventory/disrupt', { method: 'POST' });
+    await refreshData();
+    alert('🚨 CHILLER FAILURE SIMULATED: -7L lost from 1-day stock! Click "Handle Orders by AI" to re-optimize.');
 }
 
-// Explicitly attach functions to global window object so HTML onclick always finds them
+async function resetInventory() {
+    await fetch('/api/inventory/reset', { method: 'POST' });
+    await refreshData();
+}
+
 window.refreshData = refreshData;
 window.manualDecision = manualDecision;
 window.handleOrdersByAI = handleOrdersByAI;
 window.askAI = askAI;
 window.triggerDisruption = triggerDisruption;
+window.resetInventory = resetInventory;
 
-// AUTO-REFRESH every 5s
-setInterval(refreshData, 5000);
+// Initial load
+getWeather("Noida");
 refreshData();
+setInterval(refreshData, 5000);
